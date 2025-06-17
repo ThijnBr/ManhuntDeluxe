@@ -1,0 +1,17 @@
+# BetterManhunt Configuration File
+
+# Default headstart duration in seconds
+# This is the time that runners have before hunters can move
+default-headstart-duration: 30
+
+# Compass update interval in seconds
+# How often the hunting compass updates to point to the nearest runner
+compass-update-interval: 5
+
+# Chat settings
+# Should team chat be enabled by default?
+default-team-chat: false
+
+# Game settings
+# How long to display the game end screen before resetting to lobby (in seconds)
+game-end-display-time: 10

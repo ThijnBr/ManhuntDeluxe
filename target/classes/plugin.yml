@@ -1,0 +1,46 @@
+name: Manhunt Deluxe
+version: 1.0.0
+main: com.thefallersgames.bettermanhunt.Plugin
+api-version: 1.16
+description: A comprehensive Minecraft Manhunt plugin with team management and game lifecycle
+author: TheFallersGames
+softdepend: [Multiverse-Core]
+commands:
+  manhunt:
+    description: Main command for the Manhunt Deluxe plugin
+    usage: /<command> [create|delete|join|start|list|lobby|setlobby|import|remove|edit] [args]
+    aliases: [md, manhuntdeluxe]
+    permission: manhuntdeluxe.use
+  teamhunters:
+    description: Join the hunters team
+    usage: /<command>
+    permission: manhuntdeluxe.use
+  teamrunners:
+    description: Join the runners team
+    usage: /<command>
+    permission: manhuntdeluxe.use
+  quitgame:
+    description: Leave your current manhunt game
+    usage: /<command>
+    permission: manhuntdeluxe.use
+  toall:
+    description: Toggle chat to global mode
+    usage: /<command>
+    permission: manhuntdeluxe.use
+  toteam:
+    description: Toggle chat to team-only mode
+    usage: /<command>
+    permission: manhuntdeluxe.use
+  headstart:
+    description: Set the headstart duration for runners
+    usage: /<command> <seconds>
+    permission: manhuntdeluxe.use
+permissions:
+  manhuntdeluxe.use:
+    description: Allows use of basic Manhunt Deluxe commands
+    default: true
+  manhuntdeluxe.admin:
+    description: Allows use of admin Manhunt Deluxe commands
+    default: op
+    children:
+      manhuntdeluxe.use: true

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="maven-antrun-" default="main">
+  <target name="main">
+    <mkdir dir="C:\Users\Thijn\Desktop\Projects\bettermanhunt/test-libs" />
+    <get skipexisting="true" src="https://hub.spigotmc.org/nexus/content/repositories/snapshots/org/bukkit/bukkit/1.15.1-R0.1-SNAPSHOT/bukkit-1.15.1-R0.1-20200310.084222-114.jar" dest="C:\Users\Thijn\Desktop\Projects\bettermanhunt/test-libs/bukkit-1.15.1-R0.1-SNAPSHOT.jar" />
+    <get skipexisting="true" src="https://hub.spigotmc.org/nexus/content/repositories/snapshots/org/bukkit/bukkit/1.16.5-R0.1-SNAPSHOT/bukkit-1.16.5-R0.1-20210611.035019-85.jar" dest="C:\Users\Thijn\Desktop\Projects\bettermanhunt/test-libs/bukkit-1.16.5-R0.1-SNAPSHOT.jar" />
+    <get skipexisting="true" src="https://hub.spigotmc.org/nexus/content/repositories/snapshots/org/bukkit/bukkit/1.17.1-R0.1-SNAPSHOT/bukkit-1.17.1-R0.1-20210909.084815-116.jar" dest="C:\Users\Thijn\Desktop\Projects\bettermanhunt/test-libs/bukkit-1.17.1-R0.1-SNAPSHOT.jar" />
+    <get skipexisting="true" src="https://hub.spigotmc.org/nexus/content/repositories/snapshots/org/bukkit/bukkit/1.18.2-R0.1-SNAPSHOT/bukkit-1.18.2-R0.1-20220605.130812-84.jar" dest="C:\Users\Thijn\Desktop\Projects\bettermanhunt/test-libs/bukkit-1.18.2-R0.1-SNAPSHOT.jar" />
+    <get skipexisting="true" src="https://hub.spigotmc.org/nexus/content/repositories/snapshots/org/bukkit/bukkit/1.19.4-R0.1-SNAPSHOT/bukkit-1.19.4-R0.1-20230516.231237-47.jar" dest="C:\Users\Thijn\Desktop\Projects\bettermanhunt/test-libs/bukkit-1.19.4-R0.1-SNAPSHOT.jar" />
+    <get skipexisting="true" src="https://hub.spigotmc.org/nexus/content/repositories/snapshots/org/bukkit/bukkit/1.20.1-R0.1-SNAPSHOT/bukkit-1.20.1-R0.1-20230612.084420-33.jar" dest="C:\Users\Thijn\Desktop\Projects\bettermanhunt/test-libs/bukkit-1.20.1-R0.1-SNAPSHOT.jar" />
+    <get skipexisting="true" src="https://hub.spigotmc.org/nexus/content/repositories/snapshots/org/bukkit/bukkit/1.20.4-R0.1-SNAPSHOT/bukkit-1.20.4-R0.1-20231220.235855-36.jar" dest="C:\Users\Thijn\Desktop\Projects\bettermanhunt/test-libs/bukkit-1.20.4-R0.1-SNAPSHOT.jar" />
+  </target>
+</project>
