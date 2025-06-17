@@ -1,6 +1,7 @@
 package com.thefallersgames.bettermanhunt.managers;
 
 import com.thefallersgames.bettermanhunt.Plugin;
+import com.thefallersgames.bettermanhunt.services.LobbyService;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -15,7 +16,7 @@ import java.util.UUID;
  */
 public class PlayerStateManager {
     private final Map<UUID, PlayerState> playerStates;
-    private final Plugin plugin;
+    private final LobbyService lobbyService;
     
     /**
      * Creates a new PlayerStateManager.
@@ -23,8 +24,8 @@ public class PlayerStateManager {
      * @param plugin The plugin instance
      */
     public PlayerStateManager(Plugin plugin) {
-        this.plugin = plugin;
         this.playerStates = new HashMap<>();
+        this.lobbyService = plugin.getLobbyService();
     }
     
     /**
@@ -54,9 +55,9 @@ public class PlayerStateManager {
             
             // Check if the lobby spawn is set first, if so use that instead of original location
             Location targetLocation;
-            LobbyManager lobbyManager = plugin.getLobbyManager();
-            if (lobbyManager != null && lobbyManager.getLobbySpawn() != null) {
-                targetLocation = lobbyManager.getLobbySpawn();
+            Location lobbySpawn = lobbyService.getLobbySpawn();
+            if (lobbySpawn != null) {
+                targetLocation = lobbySpawn;
                 player.sendMessage("§aYou have been teleported to the lobby.");
             } else {
                 targetLocation = state.getLocation();
@@ -70,9 +71,9 @@ public class PlayerStateManager {
             player.getInventory().clear();
             
             // Try to teleport to lobby if it exists
-            LobbyManager lobbyManager = plugin.getLobbyManager();
-            if (lobbyManager != null && lobbyManager.getLobbySpawn() != null) {
-                player.teleport(lobbyManager.getLobbySpawn());
+            Location lobbySpawn = lobbyService.getLobbySpawn();
+            if (lobbySpawn != null) {
+                player.teleport(lobbySpawn);
                 player.sendMessage("§aYou have been teleported to the lobby.");
             }
         }

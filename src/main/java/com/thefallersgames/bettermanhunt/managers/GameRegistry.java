@@ -3,7 +3,6 @@ package com.thefallersgames.bettermanhunt.managers;
 import com.thefallersgames.bettermanhunt.models.Game;
 import com.thefallersgames.bettermanhunt.models.GameState;
 import org.bukkit.entity.Player;
-import org.bukkit.World;
 
 import java.util.*;
 import java.util.stream.Collectors;

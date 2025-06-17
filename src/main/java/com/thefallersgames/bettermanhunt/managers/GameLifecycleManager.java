@@ -2,10 +2,10 @@ package com.thefallersgames.bettermanhunt.managers;
 
 import com.thefallersgames.bettermanhunt.Plugin;
 import com.thefallersgames.bettermanhunt.services.WorldManagementService;
+import com.thefallersgames.bettermanhunt.services.GameTaskService;
 import com.thefallersgames.bettermanhunt.models.Game;
 import com.thefallersgames.bettermanhunt.models.GameState;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -20,7 +20,7 @@ public class GameLifecycleManager {
     private final Plugin plugin;
     private final Logger logger;
     private final GameRegistry gameRegistry;
-    private final TaskManager taskManager;
+    private final GameTaskService gameTaskService;
     private final PlayerStateManager playerStateManager;
     private final HeadstartManager headstartManager;
     private final GameSetupManager gameSetupManager;
@@ -31,7 +31,7 @@ public class GameLifecycleManager {
      *
      * @param plugin The plugin instance
      * @param gameRegistry The game registry to use
-     * @param taskManager The task manager to use
+     * @param gameTaskService The game task service to use
      * @param playerStateManager The player state manager to use
      * @param headstartManager The headstart manager to use
      * @param gameSetupManager The game setup manager to use
@@ -39,14 +39,14 @@ public class GameLifecycleManager {
     public GameLifecycleManager(
             Plugin plugin,
             GameRegistry gameRegistry,
-            TaskManager taskManager,
+            GameTaskService gameTaskService,
             PlayerStateManager playerStateManager,
             HeadstartManager headstartManager,
             GameSetupManager gameSetupManager) {
         this.plugin = plugin;
         this.logger = plugin.getLogger();
         this.gameRegistry = gameRegistry;
-        this.taskManager = taskManager;
+        this.gameTaskService = gameTaskService;
         this.playerStateManager = playerStateManager;
         this.headstartManager = headstartManager;
         this.gameSetupManager = gameSetupManager;
@@ -71,7 +71,7 @@ public class GameLifecycleManager {
         game.addRunner(owner); // Default to runner team
         
         // Create lobby boss bar
-        taskManager.createLobbyBossBar(game);
+        gameTaskService.createLobbyBossBar(game);
         
         logger.info("Created new game: " + name + " by " + owner.getName());
         return true;
@@ -102,7 +102,7 @@ public class GameLifecycleManager {
         }
         
         // Clean up game resources
-        taskManager.cleanupGameTasks(gameName);
+        gameTaskService.cleanupGameTasks(gameName);
         gameRegistry.unregisterGame(gameName);
         
         // If this was a dynamically generated world, delete it
@@ -136,28 +136,12 @@ public class GameLifecycleManager {
         if (game.getRunners().isEmpty() || game.getHunters().isEmpty()) {
             return false; // Need at least one runner and one hunter
         }
-        
-        // Make sure all players can be teleported to the game world
-        boolean allPlayersCanTeleport = true;
-        String failedPlayerName = null;
-        
-        // Check hunters
-        for (UUID playerId : game.getHunters()) {
-            Player player = Bukkit.getPlayer(playerId);
-            if (player != null) {
-                if (!worldManagementService.isWorldAccessibleForTeleport(game.getWorld(), player)) {
-                    allPlayersCanTeleport = false;
-                    failedPlayerName = player.getName();
-                    break;
-                }
-            }
-        }
 
         // Set up the game
         game.setState(GameState.ACTIVE);
         
         // Set up boss bar and prepare players
-        taskManager.setupGameStart(game, (g, player, isHunter) -> gameSetupManager.setupPlayer(g, player, isHunter));
+        gameTaskService.setupGameStart(game, (g, player, isHunter) -> gameSetupManager.setupPlayer(g, player, isHunter));
         
         logger.info("Started game: " + game.getName());
         return true;
@@ -180,7 +164,7 @@ public class GameLifecycleManager {
         headstartManager.unfreezeHunters(game);
         
         // Update boss bar and display winner
-        taskManager.handleGameEnd(game, runnersWon);
+        gameTaskService.handleGameEnd(game, runnersWon);
         
         // Schedule task to reset game after some time
         Bukkit.getScheduler().runTaskLater(plugin, () -> resetGame(game), 200L); // 10 seconds
@@ -197,7 +181,7 @@ public class GameLifecycleManager {
             game.setState(GameState.LOBBY);
             
             // Remove boss bar
-            taskManager.removeBossBar(game.getName());
+            gameTaskService.removeBossBar(game.getName());
             
             // Reset players and remove from game
             for (UUID playerId : game.getAllPlayers()) {

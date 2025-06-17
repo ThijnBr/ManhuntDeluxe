@@ -1,6 +1,5 @@
 package com.thefallersgames.bettermanhunt.managers;
 
-import com.thefallersgames.bettermanhunt.Plugin;
 import com.thefallersgames.bettermanhunt.models.Game;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
@@ -15,7 +14,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * Manages the headstart period for hunters, keeping them frozen at spawn.
  */
 public class HeadstartManager {
-    private final Plugin plugin;
     private final Map<UUID, Location> frozenHunterLocations = new ConcurrentHashMap<>();
 
     /**
@@ -23,8 +21,7 @@ public class HeadstartManager {
      *
      * @param plugin The plugin instance
      */
-    public HeadstartManager(Plugin plugin) {
-        this.plugin = plugin;
+    public HeadstartManager() {
     }
     
     /**

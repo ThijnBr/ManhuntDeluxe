@@ -3,6 +3,8 @@ package com.thefallersgames.bettermanhunt.managers;
 import com.thefallersgames.bettermanhunt.Plugin;
 import com.thefallersgames.bettermanhunt.models.Game;
 import com.thefallersgames.bettermanhunt.models.GameState;
+import com.thefallersgames.bettermanhunt.services.GameTaskService;
+import com.thefallersgames.bettermanhunt.services.LobbyService;
 import com.thefallersgames.bettermanhunt.tasks.CompassTask;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -23,12 +25,13 @@ public class GameManager implements Listener {
     
     // Specialized managers
     private final GameRegistry gameRegistry;
-    private final TaskManager taskManager;
+    private final GameTaskService gameTaskService;
     private final PlayerStateManager playerStateManager;
     private final HeadstartManager headstartManager;
     private final GameLifecycleManager lifecycleManager;
     private final PlayerManager playerManager;
     private final GameSetupManager gameSetupManager;
+    private final LobbyService lobbyService;
 
     /**
      * Constructs a new GameManager.
@@ -43,19 +46,18 @@ public class GameManager implements Listener {
         this.gameRegistry = new GameRegistry();
         this.playerStateManager = new PlayerStateManager(plugin);
         
-        // Initialize specialized managers that don't have circular dependencies
-        this.headstartManager = new HeadstartManager(plugin);
-        this.gameSetupManager = new GameSetupManager(headstartManager);
-        
-        // Initialize TaskManager with a supplier to avoid circular dependency
-        this.taskManager = new TaskManager(plugin, () -> this);
+        // Get services
+        this.headstartManager = plugin.getHeadstartManager();
+        this.gameTaskService = plugin.getGameTaskService();
+        this.gameSetupManager = this.gameTaskService.getGameSetupManager();
+        this.lobbyService = plugin.getLobbyService();
         
         // Initialize managers that depend on other managers
         this.lifecycleManager = new GameLifecycleManager(
-                plugin, gameRegistry, taskManager, playerStateManager, 
+                plugin, gameRegistry, gameTaskService, playerStateManager, 
                 headstartManager, gameSetupManager);
         this.playerManager = new PlayerManager(
-                plugin, gameRegistry, taskManager, playerStateManager, headstartManager);
+                plugin, gameRegistry, gameTaskService, playerStateManager, headstartManager);
     }
 
     /**
@@ -173,7 +175,7 @@ public class GameManager implements Listener {
      */
     public void updateLobbyBossBar(Game game) {
         if (game.getState() == GameState.LOBBY) {
-            taskManager.updateLobbyBossBar(game);
+            gameTaskService.updateLobbyBossBar(game);
         }
     }
 
@@ -252,7 +254,7 @@ public class GameManager implements Listener {
      * @return The compass task for the game, or null if none exists
      */
     public CompassTask getCompassTask(String gameName) {
-        return taskManager.getCompassTask(gameName);
+        return gameTaskService.getCompassTask(gameName);
     }
 
     /**
@@ -328,7 +330,7 @@ public class GameManager implements Listener {
      */
     public void updateActiveGameBossBar(Game game) {
         if (game.getState() == GameState.ACTIVE) {
-            taskManager.updateActiveGameBossBar(game);
+            gameTaskService.updateActiveGameBossBar(game);
         }
     }
     
@@ -341,6 +343,6 @@ public class GameManager implements Listener {
      * @return True if teleportation was successful, false otherwise
      */
     public boolean teleportToLobbyCapsule(Player player, Game game) {
-        return playerManager.teleportToLobbyCapsule(player, game);
+        return lobbyService.teleportToLobbyCapsule(player, game);
     }
 } 

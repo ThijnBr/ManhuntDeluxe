@@ -2,10 +2,9 @@ package com.thefallersgames.bettermanhunt.tasks;
 
 import com.thefallersgames.bettermanhunt.Plugin;
 import com.thefallersgames.bettermanhunt.models.Game;
-import com.thefallersgames.bettermanhunt.managers.BossBarManager;
 import com.thefallersgames.bettermanhunt.managers.GameManager;
+import com.thefallersgames.bettermanhunt.services.GameTaskService;
 import org.bukkit.Bukkit;
-import org.bukkit.GameMode;
 import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -16,12 +15,11 @@ import java.util.UUID;
  * Task that handles the headstart countdown for hunters.
  */
 public class HeadstartTask extends BukkitRunnable {
-    private final Plugin plugin;
     private final Game game;
     private final BossBar bossBar;
     private int timeLeft;
     private final GameManager gameManager;
-    private final BossBarManager bossBarManager;
+    private final GameTaskService gameTaskService;
 
     /**
      * Creates a new headstart task.
@@ -30,25 +28,20 @@ public class HeadstartTask extends BukkitRunnable {
      * @param game The game this task is for
      * @param bossBar The boss bar to update with countdown progress
      * @param gameManager The game manager to handle unfreezing hunters
-     * @param bossBarManager The boss bar manager for creating active game boss bar
+     * @param gameTaskService The game task service for creating active game boss bar
      */
-    public HeadstartTask(Plugin plugin, Game game, BossBar bossBar, GameManager gameManager, BossBarManager bossBarManager) {
-        this.plugin = plugin;
+    public HeadstartTask(Plugin plugin, Game game, BossBar bossBar, GameManager gameManager, GameTaskService gameTaskService) {
         this.game = game;
         this.bossBar = bossBar;
         this.timeLeft = game.getHeadstartDuration();
         this.gameManager = gameManager;
-        this.bossBarManager = bossBarManager;
+        this.gameTaskService = gameTaskService;
     }
 
     @Override
     public void run() {
         if (timeLeft <= 0) {
             // Headstart time is over, release the hunters!
-            
-            // Remove headstart bossbar and create active game bossbar
-            bossBar.removeAll();
-            BossBar activeGameBossBar = bossBarManager.createActiveGameBossBar(game);
             
             // Unfreeze hunters
             gameManager.unfreezeHunters(game);
@@ -70,7 +63,7 @@ public class HeadstartTask extends BukkitRunnable {
             }
             
             // Update the active game boss bar immediately
-            bossBarManager.updateActiveGameBossBar(game);
+            gameTaskService.updateActiveGameBossBar(game);
             
             this.cancel(); // End the task
             return;

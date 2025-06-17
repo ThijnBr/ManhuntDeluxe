@@ -11,19 +11,15 @@ import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
-import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.Arrays;
-import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Class that manages tracking compasses for hunters to point to the nearest runner.
  * Compasses only update on right-click and cannot be dropped.
  */
 public class CompassTask {
-    private final Plugin plugin;
     private final Game game;
     private final NamespacedKey trackerKey;
     
@@ -34,7 +30,6 @@ public class CompassTask {
      * @param game The game this task is for
      */
     public CompassTask(Plugin plugin, Game game) {
-        this.plugin = plugin;
         this.game = game;
         this.trackerKey = new NamespacedKey(plugin, "runner_tracker");
         

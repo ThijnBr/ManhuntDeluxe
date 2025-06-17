@@ -3,10 +3,10 @@ package com.thefallersgames.bettermanhunt.managers;
 import com.thefallersgames.bettermanhunt.Plugin;
 import com.thefallersgames.bettermanhunt.models.Game;
 import com.thefallersgames.bettermanhunt.models.GameState;
+import com.thefallersgames.bettermanhunt.services.GameTaskService;
+import com.thefallersgames.bettermanhunt.services.LobbyService;
 import org.bukkit.entity.Player;
-import org.bukkit.GameMode;
 import org.bukkit.ChatColor;
-import org.bukkit.Location;
 
 import java.util.UUID;
 import java.util.logging.Logger;
@@ -18,33 +18,35 @@ public class PlayerManager {
     private final Plugin plugin;
     private final Logger logger;
     private final GameRegistry gameRegistry;
-    private final TaskManager taskManager;
+    private final GameTaskService gameTaskService;
     private final PlayerStateManager playerStateManager;
     private final HeadstartManager headstartManager;
     private final com.thefallersgames.bettermanhunt.services.WorldManagementService worldManagementService;
+    private final LobbyService lobbyService;
 
     /**
      * Constructs a new PlayerManager.
      *
      * @param plugin The plugin instance
      * @param gameRegistry The game registry to use
-     * @param taskManager The task manager to use
+     * @param gameTaskService The game task service to use
      * @param playerStateManager The player state manager to use
      * @param headstartManager The headstart manager to use
      */
     public PlayerManager(
             Plugin plugin,
             GameRegistry gameRegistry,
-            TaskManager taskManager,
+            GameTaskService gameTaskService,
             PlayerStateManager playerStateManager,
             HeadstartManager headstartManager) {
         this.plugin = plugin;
         this.logger = plugin.getLogger();
         this.gameRegistry = gameRegistry;
-        this.taskManager = taskManager;
+        this.gameTaskService = gameTaskService;
         this.playerStateManager = playerStateManager;
         this.headstartManager = headstartManager;
         this.worldManagementService = plugin.getWorldManagementService();
+        this.lobbyService = plugin.getLobbyService();
     }
 
     /**
@@ -72,9 +74,6 @@ public class PlayerManager {
             return false;
         }
         
-        // Store the player's original location before saving state
-        Location originalLocation = player.getLocation().clone();
-        
         // Save player's current inventory and state
         playerStateManager.savePlayerState(player);
         
@@ -93,11 +92,11 @@ public class PlayerManager {
             }
             
             // Set lobby-specific player states
-            setupLobbyPlayerState(player);
+            lobbyService.setupLobbyPlayerState(player);
             
             // First teleport player to the glass capsule above the world spawn
             // Only continue if teleportation succeeds
-            boolean teleportSuccess = teleportToLobbyCapsule(player, game);
+            boolean teleportSuccess = lobbyService.teleportToLobbyCapsule(player, game);
             if (!teleportSuccess) {
                 // Revert team assignment and return false
                 game.removePlayer(player);
@@ -132,109 +131,15 @@ public class PlayerManager {
         
         // Add boss bar if game is active or create one if in lobby
         if (game.getState() != GameState.LOBBY) {
-            taskManager.addPlayerToBossBar(game.getName(), player);
+            gameTaskService.addPlayerToBossBar(game.getName(), player);
         } else {
             // Add to lobby boss bar and update it
-            taskManager.addPlayerToBossBar(game.getName(), player);
-            taskManager.updateLobbyBossBar(game);
+            gameTaskService.addPlayerToBossBar(game.getName(), player);
+            gameTaskService.updateLobbyBossBar(game);
         }
         
         logger.info("Added player " + player.getName() + " to game " + game.getName());
         return true;
-    }
-
-    /**
-     * Teleports a player to the glass capsule lobby 100 blocks above the world spawn.
-     * Creates the capsule if it doesn't exist.
-     *
-     * @param player The player to teleport
-     * @param game The game the player is in
-     * @return True if teleportation was successful, false otherwise
-     */
-    public boolean teleportToLobbyCapsule(Player player, Game game) {
-        try {
-            // Get the world and spawn location
-            org.bukkit.World world = game.getWorld();
-            org.bukkit.Location worldSpawn = world.getSpawnLocation().clone();
-            
-            // Create capsule 100 blocks above world spawn
-            org.bukkit.Location capsuleCenter = worldSpawn.clone().add(0, 100, 0);
-            
-            // Check if capsule already exists, if not, create it
-            if (!isCapsulePresent(capsuleCenter)) {
-                createGlassCapsule(capsuleCenter);
-            }
-            
-            // Teleport player inside the capsule
-            org.bukkit.Location teleportLocation = capsuleCenter.clone().add(0, 1, 0);
-            return player.teleport(teleportLocation);
-        } catch (Exception e) {
-            logger.warning("Error teleporting player to lobby capsule: " + e.getMessage());
-            return false;
-        }
-    }
-    
-    /**
-     * Checks if a glass capsule is already present at the given location.
-     *
-     * @param center The center location of the capsule
-     * @return True if the capsule exists
-     */
-    private boolean isCapsulePresent(org.bukkit.Location center) {
-        // Simple check: just check the floor block
-        return center.clone().subtract(0, 1, 0).getBlock().getType() == org.bukkit.Material.GLASS;
-    }
-    
-    /**
-     * Creates a glass capsule around the given center location.
-     *
-     * @param center The center location for the capsule
-     */
-    private void createGlassCapsule(org.bukkit.Location center) {
-        // Create a 5x5x3 glass capsule (5x5 base, 3 blocks high)
-        org.bukkit.World world = center.getWorld();
-        
-        // Create the capsule
-        for (int x = -2; x <= 2; x++) {
-            for (int z = -2; z <= 2; z++) {
-                for (int y = -1; y <= 2; y++) {
-                    // Skip the center blocks to make an open space
-                    if (y > -1 && y < 2 && Math.abs(x) < 2 && Math.abs(z) < 2) {
-                        continue;
-                    }
-                    
-                    org.bukkit.Location blockLoc = center.clone().add(x, y, z);
-                    blockLoc.getBlock().setType(org.bukkit.Material.GLASS);
-                }
-            }
-        }
-        
-        // Add some light
-        center.clone().add(0, 2, 0).getBlock().setType(org.bukkit.Material.GLOWSTONE);
-    }
-
-    /**
-     * Sets up a player's state for the lobby.
-     *
-     * @param player The player to set up
-     */
-    private void setupLobbyPlayerState(Player player) {
-        // Make sure player has full health
-        player.setHealth(player.getMaxHealth());
-        
-        // Set food level to maximum
-        player.setFoodLevel(20);
-        player.setSaturation(20f);
-        
-        // Make sure player is not on fire
-        player.setFireTicks(0);
-        
-        // Clear any potion effects
-        player.getActivePotionEffects().forEach(effect -> 
-            player.removePotionEffect(effect.getType()));
-            
-        // Set game mode to adventure to prevent block breaking/placing
-        player.setGameMode(GameMode.ADVENTURE);
     }
 
     /**
@@ -262,11 +167,11 @@ public class PlayerManager {
             gameRegistry.removePlayerFromGame(playerId);
             
             // Remove player from boss bar
-            taskManager.removePlayerFromBossBar(gameName, player);
+            gameTaskService.removePlayerFromBossBar(gameName, player);
             
             // Update the lobby boss bar if in lobby state
             if (game.getState() == GameState.LOBBY) {
-                taskManager.updateLobbyBossBar(game);
+                gameTaskService.updateLobbyBossBar(game);
             }
         }
         

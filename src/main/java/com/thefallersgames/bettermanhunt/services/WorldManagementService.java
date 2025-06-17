@@ -35,15 +35,12 @@ public class WorldManagementService {
         // Check if Multiverse-Core is available without directly depending on it
         try {
             if (Bukkit.getPluginManager().getPlugin("Multiverse-Core") != null) {
-                Class<?> mvCoreClass = Class.forName("com.onarandombox.MultiverseCore.MultiverseCore");
                 mvCore = Bukkit.getPluginManager().getPlugin("Multiverse-Core");
                 multiverseAvailable = true;
                 logger.info("Successfully hooked into Multiverse-Core");
             } else {
                 logger.warning("Multiverse-Core not found. Using Bukkit API for world management instead.");
             }
-        } catch (ClassNotFoundException e) {
-            logger.warning("Multiverse-Core classes not found. Using Bukkit API for world management instead.");
         } catch (Exception e) {
             logger.warning("Error hooking into Multiverse-Core: " + e.getMessage());
             logger.warning("Using Bukkit API for world management instead.");
@@ -292,7 +289,7 @@ public class WorldManagementService {
             boolean netherDeleted = deleteWorldDirectory(worldName + "_nether");
             boolean endDeleted = deleteWorldDirectory(worldName + "_the_end");
             
-            if (mainDeleted) {
+            if (mainDeleted && netherDeleted && endDeleted) {
                 logger.info("Successfully deleted world with Bukkit API: " + worldName);
             } else {
                 logger.warning("Failed to delete world with Bukkit API: " + worldName);

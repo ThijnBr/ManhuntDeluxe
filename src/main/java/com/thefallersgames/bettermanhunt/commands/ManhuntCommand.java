@@ -5,6 +5,7 @@ import com.thefallersgames.bettermanhunt.managers.GameManager;
 import com.thefallersgames.bettermanhunt.managers.GuiManager;
 import com.thefallersgames.bettermanhunt.models.Game;
 import com.thefallersgames.bettermanhunt.models.GameState;
+import com.thefallersgames.bettermanhunt.services.LobbyService;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -20,6 +21,7 @@ public class ManhuntCommand implements CommandExecutor {
     private final Plugin plugin;
     private final GameManager gameManager;
     private final GuiManager guiManager;
+    private final LobbyService lobbyService;
     
     /**
      * Creates a new manhunt command handler.
@@ -31,6 +33,7 @@ public class ManhuntCommand implements CommandExecutor {
         this.plugin = plugin;
         this.gameManager = gameManager;
         this.guiManager = guiManager;
+        this.lobbyService = plugin.getLobbyService();
     }
     
     @Override
@@ -274,7 +277,7 @@ public class ManhuntCommand implements CommandExecutor {
         }
         
         // Set the lobby location to the player's current position
-        boolean success = plugin.getLobbyManager().setLobbySpawn(player);
+        boolean success = lobbyService.setLobbySpawn(player);
         
         if (success) {
             player.sendMessage(ChatColor.GREEN + "Lobby spawn point has been set to your current location.");
@@ -296,7 +299,7 @@ public class ManhuntCommand implements CommandExecutor {
 
         
         // Teleport player to the lobby
-        boolean teleported = plugin.getLobbyManager().teleportToLobby(player);
+        boolean teleported = lobbyService.teleportToLobby(player);
         
         if (teleported) {
             player.sendMessage(ChatColor.GREEN + "You have been teleported to the lobby.");

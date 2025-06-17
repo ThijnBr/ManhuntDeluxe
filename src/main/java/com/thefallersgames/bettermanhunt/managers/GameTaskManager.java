@@ -18,7 +18,6 @@ public class GameTaskManager {
     private final Supplier<GameManager> gameManagerSupplier;
     private final Map<String, CompassTask> compassTasks;
     private final Map<String, HeadstartTask> headstartTasks;
-    private final BossBarManager bossBarManager;
     
     /**
      * Creates a new GameTaskManager.
@@ -32,7 +31,6 @@ public class GameTaskManager {
         this.gameManagerSupplier = gameManagerSupplier;
         this.compassTasks = new HashMap<>();
         this.headstartTasks = new HashMap<>();
-        this.bossBarManager = bossBarManager;
     }
     
     /**
@@ -54,7 +52,7 @@ public class GameTaskManager {
         String gameName = game.getName();
         
         // Start headstart countdown
-        HeadstartTask headstartTask = new HeadstartTask(plugin, game, bossBar, getGameManager(), bossBarManager);
+        HeadstartTask headstartTask = new HeadstartTask(plugin, game, bossBar, getGameManager(), plugin.getGameTaskService());
         headstartTask.runTaskTimer(plugin, 0L, 20L); // Update every second
         headstartTasks.put(gameName, headstartTask);
     }
