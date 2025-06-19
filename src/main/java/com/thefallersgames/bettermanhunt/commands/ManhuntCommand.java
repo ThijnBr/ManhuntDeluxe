@@ -11,6 +11,9 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.World;
+import org.bukkit.WorldCreator;
+import org.bukkit.World.Environment;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -53,10 +56,16 @@ public class ManhuntCommand implements CommandExecutor {
         }
         
         String subCommand = args[0].toLowerCase();
-        
+
         switch (subCommand) {
             case "create":
+                // This command is now for creating games with new worlds only
+                // For current world, players should use /manhunt currentworld
                 handleCreateCommand(player, args);
+                break;
+                
+            case "currentworld":
+                handleCurrentWorldCommand(player, args);
                 break;
                 
             case "delete":
@@ -96,6 +105,19 @@ public class ManhuntCommand implements CommandExecutor {
      * Handles the /manhunt create command.
      */
     private void handleCreateCommand(Player player, String[] args) {
+        // If Multiverse is not available, this command can only be used by admins
+        // and it will create a game in the current world.
+        if (!plugin.isMultiverseAvailable()) {
+            if (player.hasPermission("bettermanhunt.admin")) {
+                player.sendMessage(ChatColor.YELLOW + "Multiverse-Core not found. Creating a game in the current world instead...");
+                handleCurrentWorldCommand(player, args);
+            } else {
+                player.sendMessage(ChatColor.RED + "This command requires Multiverse-Core to be installed to create new worlds.");
+                player.sendMessage(ChatColor.YELLOW + "Please ask an admin to create a game for you in an existing world.");
+            }
+            return;
+        }
+        
         // Check if player is already in a game
         Game currentGame = gameManager.getPlayerGame(player);
         if (currentGame != null) {
@@ -105,6 +127,138 @@ public class ManhuntCommand implements CommandExecutor {
         
         // Show world selection GUI
         guiManager.showWorldSelectionGui(player);
+    }
+    
+    /**
+     * Handles the /manhunt currentworld command.
+     */
+    private void handleCurrentWorldCommand(Player player, String[] args) {
+        // Check if player has admin permission
+        if (!player.hasPermission("bettermanhunt.admin")) {
+            player.sendMessage(ChatColor.RED + "You don't have permission to create a game in the current world.");
+            return;
+        }
+        
+        // Check if player is already in a game
+        Game currentGame = gameManager.getPlayerGame(player);
+        if (currentGame != null) {
+            player.sendMessage(ChatColor.RED + "You are already in a game. Leave it first with /quitgame.");
+            return;
+        }
+        
+        // Get the current world the player is in
+        World playerWorld = player.getWorld();
+        String worldName = playerWorld.getName();
+        
+        // Check if there's a game already running in this world
+        for (Game game : gameManager.getAllGames()) {
+            if (game.getWorld().getName().equals(worldName)) {
+                player.sendMessage(ChatColor.RED + "A game is already running in this world. Please join that game or choose another world.");
+                return;
+            }
+        }
+        
+        // Check and create Nether and End dimensions if they don't exist
+        if (!ensureDimensionsExist(player, worldName)) {
+            // ensureDimensionsExist will send error messages to the player
+            return;
+        }
+        
+        // Generate a game name based on the world
+        String baseName = "game_" + worldName;
+        String gameName = baseName;
+        int counter = 1;
+        
+        // Make sure the game name is unique
+        while (gameManager.getGame(gameName) != null) {
+            gameName = baseName + "_" + counter++;
+        }
+        
+        // Create the game with the current world
+        boolean created = gameManager.createGame(gameName, player, playerWorld);
+        
+        if (created) {
+            boolean teleportSuccess = lobbyService.teleportToLobbyCapsule(player, gameManager.getGame(gameName));
+            player.sendMessage(ChatColor.GREEN + "Created new game in the current world with name: " + 
+                    ChatColor.GOLD + gameName);
+            
+            // Join the game
+            Game game = gameManager.getGame(gameName);
+            if (game != null) {
+                // Give player lobby items
+                guiManager.giveLobbyItems(player, game);
+                
+                // Set up the player's state for the lobby
+                plugin.getLobbyService().setupLobbyPlayerState(player);
+            }
+        } else {
+            player.sendMessage(ChatColor.RED + "Failed to create game in the current world.");
+        }
+    }
+    
+    /**
+     * Ensures that Nether and End dimensions exist for the given world.
+     * Creates them if they don't exist.
+     * 
+     * @param player The player to notify of progress
+     * @param worldName The base world name
+     * @return true if dimensions exist or were created successfully, false otherwise
+     */
+    private boolean ensureDimensionsExist(Player player, String worldName) {
+        // Check for Nether
+        String netherWorldName = worldName + "_nether";
+        World netherWorld = plugin.getServer().getWorld(netherWorldName);
+        
+        // Check for End
+        String endWorldName = worldName + "_the_end";
+        World endWorld = plugin.getServer().getWorld(endWorldName);
+        
+        // If Multiverse is not available, we can't create dimensions
+        if (!plugin.isMultiverseAvailable()) {
+            boolean hasBothDimensions = (netherWorld != null && endWorld != null);
+            
+            if (!hasBothDimensions) {
+                if (netherWorld == null) {
+                    player.sendMessage(ChatColor.RED + "The Nether dimension is missing and Multiverse-Core is not installed to create it.");
+                }
+                
+                if (endWorld == null) {
+                    player.sendMessage(ChatColor.RED + "The End dimension is missing and Multiverse-Core is not installed to create it.");
+                }
+                
+                player.sendMessage(ChatColor.RED + "You need both dimensions to play Manhunt. Please install Multiverse-Core or create these dimensions manually.");
+                return false;
+            }
+            
+            return true;
+        }
+        
+        // Create missing dimensions using Multiverse
+        if (netherWorld == null) {
+            player.sendMessage(ChatColor.YELLOW + "Creating Nether dimension for this world...");
+            
+            WorldCreator netherCreator = new WorldCreator(netherWorldName);
+            netherCreator.environment(Environment.NETHER);
+            netherCreator.seed(plugin.getServer().getWorld(worldName).getSeed());
+            netherCreator.generateStructures(true);
+            
+            netherWorld = netherCreator.createWorld();
+            player.sendMessage(ChatColor.GREEN + "Nether dimension created successfully.");
+        }
+        
+        if (endWorld == null) {
+            player.sendMessage(ChatColor.YELLOW + "Creating End dimension for this world...");
+            
+            WorldCreator endCreator = new WorldCreator(endWorldName);
+            endCreator.environment(Environment.THE_END);
+            endCreator.seed(plugin.getServer().getWorld(worldName).getSeed());
+            endCreator.generateStructures(true);
+            
+            endWorld = endCreator.createWorld();
+            player.sendMessage(ChatColor.GREEN + "End dimension created successfully.");
+        }
+        
+        return true;
     }
     
     /**
@@ -351,20 +505,24 @@ public class ManhuntCommand implements CommandExecutor {
      */
     private void sendHelpMessage(Player player) {
         player.sendMessage(ChatColor.GOLD + "=== BetterManhunt Commands ===");
-        player.sendMessage(ChatColor.YELLOW + "/manhunt create" + ChatColor.WHITE + " - Create a new manhunt game");
-        player.sendMessage(ChatColor.YELLOW + "/manhunt delete <name>" + ChatColor.WHITE + " - Delete a manhunt game");
+        player.sendMessage(ChatColor.YELLOW + "/manhunt create" + ChatColor.WHITE + " - Create a new manhunt game with a new world (requires Multiverse-Core)");
         player.sendMessage(ChatColor.YELLOW + "/manhunt join [name]" + ChatColor.WHITE + " - Join a manhunt game");
-        player.sendMessage(ChatColor.YELLOW + "/manhunt start [name]" + ChatColor.WHITE + " - Start a manhunt game");
         player.sendMessage(ChatColor.YELLOW + "/manhunt list" + ChatColor.WHITE + " - List all manhunt games");
-        player.sendMessage(ChatColor.YELLOW + "/manhunt lobby" + ChatColor.WHITE + " - Teleport to the main lobby");
+        player.sendMessage(ChatColor.YELLOW + "/manhunt lobby" + ChatColor.WHITE + " - Teleport to the global lobby");
         player.sendMessage(ChatColor.YELLOW + "/teamhunters" + ChatColor.WHITE + " - Join the hunters team");
         player.sendMessage(ChatColor.YELLOW + "/teamrunners" + ChatColor.WHITE + " - Join the runners team");
         player.sendMessage(ChatColor.YELLOW + "/quitgame" + ChatColor.WHITE + " - Leave your current manhunt game");
         
+        player.sendMessage(ChatColor.GOLD + "=== Game Owner Commands ===");
+        player.sendMessage(ChatColor.YELLOW + "/manhunt delete <name>" + ChatColor.WHITE + " - Delete your manhunt game");
+        player.sendMessage(ChatColor.YELLOW + "/manhunt start [name]" + ChatColor.WHITE + " - Start your manhunt game");
+        
         if (player.hasPermission("bettermanhunt.admin")) {
             player.sendMessage(ChatColor.GOLD + "=== Admin Commands ===");
             player.sendMessage(ChatColor.YELLOW + "/manhunt setlobby" + ChatColor.WHITE + " - Set the main lobby location");
-            player.sendMessage(ChatColor.YELLOW + "/manhunt edit <world>" + ChatColor.WHITE + " - Edit a world in creative mode");
+            player.sendMessage(ChatColor.YELLOW + "/manhunt currentworld" + ChatColor.WHITE + " - Create a new manhunt game in the current world");
+            player.sendMessage(ChatColor.YELLOW + "/manhunt delete <name>" + ChatColor.WHITE + " - Delete any manhunt game");
+            player.sendMessage(ChatColor.YELLOW + "/manhunt start <name>" + ChatColor.WHITE + " - Start any manhunt game");
         }
     }
 } 

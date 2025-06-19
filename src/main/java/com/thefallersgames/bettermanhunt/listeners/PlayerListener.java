@@ -8,6 +8,7 @@ import com.thefallersgames.bettermanhunt.models.Game;
 import com.thefallersgames.bettermanhunt.models.GameState;
 import com.thefallersgames.bettermanhunt.tasks.CompassTask;
 import com.thefallersgames.bettermanhunt.utils.GameUtils;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Material;

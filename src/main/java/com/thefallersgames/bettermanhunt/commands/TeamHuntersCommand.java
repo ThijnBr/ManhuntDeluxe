@@ -54,6 +54,13 @@ public class TeamHuntersCommand implements CommandExecutor {
         if (game.addHunter(player)) {
             player.sendMessage(ChatColor.GREEN + "You joined the " + ChatColor.RED + "HUNTERS" + ChatColor.GREEN + " team.");
             
+            // Show title to the player
+            player.sendTitle(
+                ChatColor.RED + "HUNTERS TEAM",
+                ChatColor.GOLD + "Hunt down the runners!",
+                10, 60, 20
+            );
+            
             if (wasRunner) {
                 // Broadcast team change
                 for (Player p : player.getServer().getOnlinePlayers()) {

@@ -54,6 +54,13 @@ public class TeamRunnersCommand implements CommandExecutor {
         if (game.addRunner(player)) {
             player.sendMessage(ChatColor.GREEN + "You joined the " + ChatColor.GREEN + "RUNNERS" + ChatColor.GREEN + " team.");
             
+            // Show title to the player
+            player.sendTitle(
+                ChatColor.GREEN + "RUNNERS TEAM",
+                ChatColor.GOLD + "Beat the game before being caught!",
+                10, 60, 20
+            );
+            
             if (wasHunter) {
                 // Broadcast team change
                 for (Player p : player.getServer().getOnlinePlayers()) {

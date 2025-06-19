@@ -2,6 +2,7 @@ package com.thefallersgames.bettermanhunt.managers;
 
 import com.thefallersgames.bettermanhunt.models.Game;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -40,6 +41,26 @@ public class HeadstartManager {
         // Cancel any existing headstart task
         cancelHeadstartTask(gameName);
         
+        // Show splash screen to all players for headstart start
+        for (UUID playerId : game.getAllPlayers()) {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player != null) {
+                if (game.isRunner(player)) {
+                    player.sendTitle(
+                        ChatColor.GREEN + "Headstart Begins!",
+                        ChatColor.GOLD + "Run and gather resources!",
+                        10, 60, 20
+                    );
+                } else if (game.isHunter(player)) {
+                    player.sendTitle(
+                        ChatColor.RED + "Hunters Frozen",
+                        ChatColor.GOLD + "You'll be released soon!",
+                        10, 60, 20
+                    );
+                }
+            }
+        }
+        
         // Schedule a task to run every second to count down
         int headstartDuration = game.getHeadstartDuration();
         int taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, new Runnable() {
@@ -50,6 +71,26 @@ public class HeadstartManager {
                 if (secondsLeft <= 0) {
                     // Time's up - unfreeze hunters
                     unfreezeHunters(game);
+                    
+                    // Show splash screen to all players when hunters are released
+                    for (UUID playerId : game.getAllPlayers()) {
+                        Player player = Bukkit.getPlayer(playerId);
+                        if (player != null) {
+                            if (game.isRunner(player)) {
+                                player.sendTitle(
+                                    ChatColor.YELLOW + "Hunters Released!",
+                                    ChatColor.RED + "They're coming for you now!",
+                                    10, 60, 20
+                                );
+                            } else if (game.isHunter(player)) {
+                                player.sendTitle(
+                                    ChatColor.RED + "Hunt Begins!",
+                                    ChatColor.GOLD + "Go catch those runners!",
+                                    10, 60, 20
+                                );
+                            }
+                        }
+                    }
                     
                     // Call completion callback
                     completionCallback.run();

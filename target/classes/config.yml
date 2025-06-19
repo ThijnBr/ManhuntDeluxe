@@ -16,6 +16,10 @@ default-team-chat: false
 # How long to display the game end screen before resetting to lobby (in seconds)
 game-end-display-time: 10
 
+# World settings
+# Folder name for custom generated worlds
+custom-worlds-folder: "ManhuntWorlds"
+
 # Lobby settings
 # The lobby location is set via the /manhunt setlobby command
 # and will be saved here automatically

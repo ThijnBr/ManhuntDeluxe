@@ -10,6 +10,7 @@ import org.bukkit.GameMode;
 import org.bukkit.World;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
+import org.bukkit.ChatColor;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -30,6 +31,7 @@ public class GameLifecycleManager {
     private final HeadstartManager headstartManager;
     private final GameSetupManager gameSetupManager;
     private final WorldManagementService worldManagementService;
+    private final String worldsFolder;
 
     /**
      * Constructs a new GameLifecycleManager.
@@ -56,6 +58,7 @@ public class GameLifecycleManager {
         this.headstartManager = headstartManager;
         this.gameSetupManager = gameSetupManager;
         this.worldManagementService = plugin.getWorldManagementService();
+        this.worldsFolder = plugin.getConfig().getString("custom-worlds-folder", "ManhuntWorlds");
     }
 
     /**
@@ -96,7 +99,7 @@ public class GameLifecycleManager {
 
         // Get the world name before cleaning up players
         String worldName = game.getWorld().getName();
-        boolean isDynamicallyGenerated = worldName.startsWith("manhunt_");
+        boolean isDynamicallyGenerated = worldName.contains(worldsFolder + "/");
 
         // Set game state to DELETING if not already in ENDING or DELETING state
         if (game.getState() != GameState.ENDING && game.getState() != GameState.DELETING) {
@@ -138,37 +141,46 @@ public class GameLifecycleManager {
             // Check if the plugin is being disabled
             if (!plugin.isEnabled()) {
                 // Plugin is being disabled, delete the world synchronously
-                boolean deleted = worldManagementService.deleteWorld(worldName);
-                if (deleted) {
-                    logger.info("Deleted dynamically generated world during shutdown: " + worldName);
-                } else {
-                    logger.warning("Failed to delete dynamically generated world during shutdown: " + worldName + 
-                                  ". The server might need to clean it up on next restart.");
+                try {
+                    // Still async but we'll wait for the result
+                    boolean deleted = worldManagementService.deleteWorld(worldName).get();
+                    if (deleted) {
+                        logger.info("Deleted dynamically generated world during shutdown: " + worldName);
+                    } else {
+                        logger.warning("Failed to delete dynamically generated world during shutdown: " + worldName + 
+                                    ". The server might need to clean it up on next restart.");
+                    }
+                } catch (Exception e) {
+                    logger.severe("Error deleting world during shutdown: " + worldName + " - " + e.getMessage());
                 }
             } else {
                 // Plugin is still enabled, schedule world deletion after a short delay
                 Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                    boolean deleted = worldManagementService.deleteWorld(worldName);
-                    if (deleted) {
-                        logger.info("Deleted dynamically generated world: " + worldName);
-                    } else {
-                        logger.warning("Failed to delete dynamically generated world: " + worldName);
-                        
-                        // Only attempt a second time if the plugin is still enabled
-                        if (plugin.isEnabled()) {
-                            // Attempt to force delete after an additional delay if first attempt failed
-                            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    worldManagementService.deleteWorld(worldName)
+                        .thenAccept(deleted -> {
+                            if (deleted) {
+                                logger.info("Deleted dynamically generated world: " + worldName);
+                            } else {
+                                logger.warning("Failed to delete dynamically generated world: " + worldName);
+                                
+                                // Only attempt a second time if the plugin is still enabled
                                 if (plugin.isEnabled()) {
-                                    boolean forcedDelete = worldManagementService.deleteWorld(worldName);
-                                    if (forcedDelete) {
-                                        logger.info("Successfully force-deleted world: " + worldName);
-                                    } else {
-                                        logger.severe("Failed to force-delete world: " + worldName + ". Manual cleanup may be required.");
-                                    }
+                                    // Attempt to force delete after an additional delay if first attempt failed
+                                    Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                                        if (plugin.isEnabled()) {
+                                            worldManagementService.deleteWorld(worldName)
+                                                .thenAccept(forcedDelete -> {
+                                                    if (forcedDelete) {
+                                                        logger.info("Successfully force-deleted world: " + worldName);
+                                                    } else {
+                                                        logger.severe("Failed to force-delete world: " + worldName + ". Manual cleanup may be required.");
+                                                    }
+                                                });
+                                        }
+                                    }, 100L); // 5 second additional delay
                                 }
-                            }, 100L); // 5 second additional delay
-                        }
-                    }
+                            }
+                        });
                 }, 40L); // 2 second delay
             }
         }
@@ -304,6 +316,28 @@ public class GameLifecycleManager {
         
         // Update boss bar and display winner
         gameTaskService.handleGameEnd(game, runnersWon);
+        
+        // Show splash screen to all players for game end
+        for (UUID playerId : game.getAllPlayers()) {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player != null) {
+                if (runnersWon) {
+                    // Runners won
+                    player.sendTitle(
+                        ChatColor.GREEN + "GAME OVER",
+                        ChatColor.GOLD + "The Runners have won!",
+                        20, 100, 20
+                    );
+                } else {
+                    // Hunters won
+                    player.sendTitle(
+                        ChatColor.RED + "GAME OVER",
+                        ChatColor.GOLD + "The Hunters have won!",
+                        20, 100, 20
+                    );
+                }
+            }
+        }
         
         // Schedule task to clean up the game after showing results
         Bukkit.getScheduler().runTaskLater(plugin, () -> {

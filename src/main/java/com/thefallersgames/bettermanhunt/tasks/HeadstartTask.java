@@ -74,14 +74,7 @@ public class HeadstartTask extends BukkitRunnable {
         bossBar.setTitle("Headstart: " + timeLeft + " seconds remaining");
         
         // Countdown message
-        if (timeLeft <= 5 || timeLeft % 10 == 0) {
-            for (UUID hunterId : game.getHunters()) {
-                Player hunter = Bukkit.getPlayer(hunterId);
-                if (hunter != null) {
-                    hunter.sendMessage("§6You will be released in §e" + timeLeft + "§6 seconds!");
-                }
-            }
-            
+        if (timeLeft <= 5 || timeLeft % 10 == 0) {            
             for (UUID runnerId : game.getRunners()) {
                 Player runner = Bukkit.getPlayer(runnerId);
                 if (runner != null) {

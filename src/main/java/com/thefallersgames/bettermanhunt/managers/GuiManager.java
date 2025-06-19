@@ -7,6 +7,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -47,10 +48,12 @@ public class GuiManager {
      */
     public void showGameSelectionGui(Player player) {
         Inventory gui = GuiUtil.createBorderedGui("&8&lManhunt - Game Selection", 45, Material.GLASS);
+
+        if (plugin.isMultiverseAvailable()) {
+            gui.setItem(22, GuiUtil.createItem(Material.NETHER_STAR, "&a&lCreate New Game",
+                    "&7Click to create a new Manhunt game"));
+        }
         
-        // Create New Game button
-        gui.setItem(22, GuiUtil.createItem(Material.NETHER_STAR, "&a&lCreate New Game",
-                "&7Click to create a new Manhunt game"));
         
         Collection<Game> games = gameManager.getAllGames();
         

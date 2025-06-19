@@ -144,7 +144,7 @@ public class LobbyService {
             }
             
             // Teleport player inside the capsule
-            Location teleportLocation = capsuleCenter.clone().add(0, 1, 0);
+            Location teleportLocation = capsuleCenter.clone().add(1.5, 1, 1.5);
             return player.teleport(teleportLocation);
         } catch (Exception e) {
             plugin.getLogger().warning("Error teleporting player to lobby capsule: " + e.getMessage());
@@ -159,8 +159,8 @@ public class LobbyService {
      * @return True if the capsule exists
      */
     private boolean isCapsulePresent(Location center) {
-        // Simple check: just check the floor block
-        return center.clone().subtract(0, 1, 0).getBlock().getType() == Material.GLASS;
+        // Simple check: just check one of the corner blocks
+        return center.getBlock().getType() == Material.GLASS;
     }
     
     /**
@@ -168,25 +168,30 @@ public class LobbyService {
      *
      * @param center The center location for the capsule
      */
-    private void createGlassCapsule(Location center) {        
-        // Create the capsule
-        for (int x = -2; x <= 2; x++) {
-            for (int z = -2; z <= 2; z++) {
-                for (int y = -1; y <= 2; y++) {
-                    // Skip the center blocks to make an open space
-                    if (y > -1 && y < 2 && Math.abs(x) < 2 && Math.abs(z) < 2) {
+    private void createGlassCapsule(Location center) {
+        // Capsule dimensions
+        int width = 3;
+        int height = 4;
+        int depth = 3;
+    
+        for (int x = 0; x <= width; x++) {
+            for (int y = 0; y <= height; y++) {
+                for (int z = 0; z <= depth; z++) {
+                    // Skip inner air space (2x3x2 space starting at center)
+                    if (x > 0 && x < width && y > 0 && y < height && z > 0 && z < depth) {
                         continue;
                     }
-                    
+    
                     Location blockLoc = center.clone().add(x, y, z);
                     blockLoc.getBlock().setType(Material.GLASS);
                 }
             }
         }
-        
-        // Add some light
-        center.clone().add(0, 2, 0).getBlock().setType(Material.GLOWSTONE);
+    
+        // Add light at the ceiling center
+        center.clone().add(width / 2.0, height, depth / 2.0).getBlock().setType(Material.GLOWSTONE);
     }
+    
     
     /**
      * Sets up a player's state for the lobby.

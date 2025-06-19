@@ -144,7 +144,7 @@ public class GuiListener implements Listener {
             player.sendMessage(ChatColor.GREEN + "Generating new world for your manhunt game...");
             
             // Generate a game name
-            String gameName = "manhunt_Game_" + player.getName() + "_" + random.nextInt(1000);
+            String gameName = "Game_" + player.getName() + "_" + random.nextInt(1000);
             
             // Generate a new world using the WorldManagementService
             plugin.getWorldManagementService().createWorldWithMultiverse(gameName).thenAccept(world -> {

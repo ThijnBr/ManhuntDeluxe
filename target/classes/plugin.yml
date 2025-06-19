@@ -4,12 +4,12 @@ main: com.thefallersgames.bettermanhunt.Plugin
 api-version: 1.16
 description: A comprehensive Minecraft Manhunt plugin with team management and game lifecycle
 author: TheFallersGames
-depend: [Multiverse-Core]
-softdepend: [Multiverse-Inventories]
+depend: []
+softdepend: [Multiverse-Inventories, Multiverse-Core]
 commands:
   manhunt:
     description: Main command for the Manhunt Deluxe plugin
-    usage: /<command> [create|delete|join|start|list|lobby|setlobby] [args]
+    usage: /<command> [create|currentworld|delete|join|start|list|lobby|setlobby] [args]
     aliases: [md, manhuntdeluxe]
     permission: manhuntdeluxe.use
   teamhunters:

@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="com.thefallersgames.PluginTest" time="0.109" tests="1" errors="0" skipped="0" failures="0">
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="com.thefallersgames.PluginTest" time="0.048" tests="1" errors="0" skipped="0" failures="0">
   <properties>
     <property name="java.specification.version" value="21"/>
     <property name="sun.cpu.isalist" value="amd64"/>
     <property name="sun.jnu.encoding" value="Cp1252"/>
-    <property name="java.class.path" value="C:\Users\Thijn\Desktop\Projects\bettermanhunt\target\test-classes;C:\Users\Thijn\Desktop\Projects\bettermanhunt\target\classes;C:\Users\Thijn\.m2\repository\org\spigotmc\spigot-api\1.15.1-R0.1-SNAPSHOT\spigot-api-1.15.1-R0.1-SNAPSHOT.jar;C:\Users\Thijn\.m2\repository\commons-lang\commons-lang\2.6\commons-lang-2.6.jar;C:\Users\Thijn\.m2\repository\com\google\guava\guava\21.0\guava-21.0.jar;C:\Users\Thijn\.m2\repository\com\google\code\gson\gson\2.8.0\gson-2.8.0.jar;C:\Users\Thijn\.m2\repository\net\md-5\bungeecord-chat\1.13-SNAPSHOT\bungeecord-chat-1.13-SNAPSHOT.jar;C:\Users\Thijn\.m2\repository\org\yaml\snakeyaml\1.25\snakeyaml-1.25.jar;C:\Users\Thijn\.m2\repository\org\mvplugins\multiverse\core\multiverse-core\5.0.0-SNAPSHOT\multiverse-core-5.0.0-SNAPSHOT.jar;C:\Users\Thijn\.m2\repository\org\mvplugins\multiverse\inventories\multiverse-inventories\5.0.0-SNAPSHOT\multiverse-inventories-5.0.0-SNAPSHOT.jar;C:\Users\Thijn\.m2\repository\junit\junit\4.13.2\junit-4.13.2.jar;C:\Users\Thijn\.m2\repository\org\hamcrest\hamcrest-core\1.3\hamcrest-core-1.3.jar;"/>
+    <property name="java.class.path" value="c:\Users\Thijn\Desktop\Projects\bettermanhunt\target\test-classes;c:\Users\Thijn\Desktop\Projects\bettermanhunt\target\classes;C:\Users\Thijn\.m2\repository\org\spigotmc\spigot-api\1.15.1-R0.1-SNAPSHOT\spigot-api-1.15.1-R0.1-SNAPSHOT.jar;C:\Users\Thijn\.m2\repository\commons-lang\commons-lang\2.6\commons-lang-2.6.jar;C:\Users\Thijn\.m2\repository\com\google\guava\guava\21.0\guava-21.0.jar;C:\Users\Thijn\.m2\repository\com\google\code\gson\gson\2.8.0\gson-2.8.0.jar;C:\Users\Thijn\.m2\repository\net\md-5\bungeecord-chat\1.13-SNAPSHOT\bungeecord-chat-1.13-SNAPSHOT.jar;C:\Users\Thijn\.m2\repository\org\yaml\snakeyaml\1.25\snakeyaml-1.25.jar;C:\Users\Thijn\.m2\repository\org\mvplugins\multiverse\core\multiverse-core\5.0.0-SNAPSHOT\multiverse-core-5.0.0-SNAPSHOT.jar;C:\Users\Thijn\.m2\repository\org\mvplugins\multiverse\inventories\multiverse-inventories\5.0.0-SNAPSHOT\multiverse-inventories-5.0.0-SNAPSHOT.jar;C:\Users\Thijn\.m2\repository\junit\junit\4.13.2\junit-4.13.2.jar;C:\Users\Thijn\.m2\repository\org\hamcrest\hamcrest-core\1.3\hamcrest-core-1.3.jar;"/>
     <property name="java.vm.vendor" value="Amazon.com Inc."/>
     <property name="sun.arch.data.model" value="64"/>
     <property name="user.variant" value=""/>
@@ -16,9 +16,9 @@
     <property name="sun.java.launcher" value="SUN_STANDARD"/>
     <property name="user.country" value="US"/>
     <property name="sun.boot.library.path" value="C:\Program Files\Amazon Corretto\jdk21.0.7_6\bin"/>
-    <property name="sun.java.command" value="C:\Users\Thijn\AppData\Local\Temp\surefire12056703829191102234\surefirebooter-20250619151319368_3.jar C:\Users\Thijn\AppData\Local\Temp\surefire12056703829191102234 2025-06-19T15-13-19_158-jvmRun1 surefire-20250619151319368_1tmp surefire_0-20250619151319368_2tmp"/>
+    <property name="sun.java.command" value="C:\Users\Thijn\AppData\Local\Temp\surefire15561822553943732837\surefirebooter-20250619212931265_3.jar C:\Users\Thijn\AppData\Local\Temp\surefire15561822553943732837 2025-06-19T21-29-31_163-jvmRun1 surefire-20250619212931265_1tmp surefire_0-20250619212931265_2tmp"/>
     <property name="jdk.debug" value="release"/>
-    <property name="surefire.test.class.path" value="C:\Users\Thijn\Desktop\Projects\bettermanhunt\target\test-classes;C:\Users\Thijn\Desktop\Projects\bettermanhunt\target\classes;C:\Users\Thijn\.m2\repository\org\spigotmc\spigot-api\1.15.1-R0.1-SNAPSHOT\spigot-api-1.15.1-R0.1-SNAPSHOT.jar;C:\Users\Thijn\.m2\repository\commons-lang\commons-lang\2.6\commons-lang-2.6.jar;C:\Users\Thijn\.m2\repository\com\google\guava\guava\21.0\guava-21.0.jar;C:\Users\Thijn\.m2\repository\com\google\code\gson\gson\2.8.0\gson-2.8.0.jar;C:\Users\Thijn\.m2\repository\net\md-5\bungeecord-chat\1.13-SNAPSHOT\bungeecord-chat-1.13-SNAPSHOT.jar;C:\Users\Thijn\.m2\repository\org\yaml\snakeyaml\1.25\snakeyaml-1.25.jar;C:\Users\Thijn\.m2\repository\org\mvplugins\multiverse\core\multiverse-core\5.0.0-SNAPSHOT\multiverse-core-5.0.0-SNAPSHOT.jar;C:\Users\Thijn\.m2\repository\org\mvplugins\multiverse\inventories\multiverse-inventories\5.0.0-SNAPSHOT\multiverse-inventories-5.0.0-SNAPSHOT.jar;C:\Users\Thijn\.m2\repository\junit\junit\4.13.2\junit-4.13.2.jar;C:\Users\Thijn\.m2\repository\org\hamcrest\hamcrest-core\1.3\hamcrest-core-1.3.jar;"/>
+    <property name="surefire.test.class.path" value="c:\Users\Thijn\Desktop\Projects\bettermanhunt\target\test-classes;c:\Users\Thijn\Desktop\Projects\bettermanhunt\target\classes;C:\Users\Thijn\.m2\repository\org\spigotmc\spigot-api\1.15.1-R0.1-SNAPSHOT\spigot-api-1.15.1-R0.1-SNAPSHOT.jar;C:\Users\Thijn\.m2\repository\commons-lang\commons-lang\2.6\commons-lang-2.6.jar;C:\Users\Thijn\.m2\repository\com\google\guava\guava\21.0\guava-21.0.jar;C:\Users\Thijn\.m2\repository\com\google\code\gson\gson\2.8.0\gson-2.8.0.jar;C:\Users\Thijn\.m2\repository\net\md-5\bungeecord-chat\1.13-SNAPSHOT\bungeecord-chat-1.13-SNAPSHOT.jar;C:\Users\Thijn\.m2\repository\org\yaml\snakeyaml\1.25\snakeyaml-1.25.jar;C:\Users\Thijn\.m2\repository\org\mvplugins\multiverse\core\multiverse-core\5.0.0-SNAPSHOT\multiverse-core-5.0.0-SNAPSHOT.jar;C:\Users\Thijn\.m2\repository\org\mvplugins\multiverse\inventories\multiverse-inventories\5.0.0-SNAPSHOT\multiverse-inventories-5.0.0-SNAPSHOT.jar;C:\Users\Thijn\.m2\repository\junit\junit\4.13.2\junit-4.13.2.jar;C:\Users\Thijn\.m2\repository\org\hamcrest\hamcrest-core\1.3\hamcrest-core-1.3.jar;"/>
     <property name="sun.cpu.endian" value="little"/>
     <property name="user.home" value="C:\Users\Thijn"/>
     <property name="user.language" value="en"/>
@@ -26,12 +26,12 @@
     <property name="java.version.date" value="2025-04-15"/>
     <property name="java.home" value="C:\Program Files\Amazon Corretto\jdk21.0.7_6"/>
     <property name="file.separator" value="\"/>
-    <property name="basedir" value="C:\Users\Thijn\Desktop\Projects\bettermanhunt"/>
+    <property name="basedir" value="c:\Users\Thijn\Desktop\Projects\bettermanhunt"/>
     <property name="java.vm.compressedOopsMode" value="Zero based"/>
     <property name="line.separator" value="&#10;"/>
     <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
     <property name="java.specification.name" value="Java Platform API Specification"/>
-    <property name="surefire.real.class.path" value="C:\Users\Thijn\AppData\Local\Temp\surefire12056703829191102234\surefirebooter-20250619151319368_3.jar"/>
+    <property name="surefire.real.class.path" value="C:\Users\Thijn\AppData\Local\Temp\surefire15561822553943732837\surefirebooter-20250619212931265_3.jar"/>
     <property name="user.script" value=""/>
     <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
     <property name="java.runtime.version" value="21.0.7+6-LTS"/>
@@ -47,7 +47,7 @@
     <property name="java.vendor.url.bug" value="https://github.com/corretto/corretto-21/issues/"/>
     <property name="java.io.tmpdir" value="C:\Users\Thijn\AppData\Local\Temp\"/>
     <property name="java.version" value="21.0.7"/>
-    <property name="user.dir" value="C:\Users\Thijn\Desktop\Projects\bettermanhunt"/>
+    <property name="user.dir" value="c:\Users\Thijn\Desktop\Projects\bettermanhunt"/>
     <property name="os.arch" value="amd64"/>
     <property name="java.vm.specification.name" value="Java Virtual Machine Specification"/>
     <property name="sun.os.patch.level" value=""/>
@@ -60,5 +60,5 @@
     <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
     <property name="java.class.version" value="65.0"/>
   </properties>
-  <testcase name="shouldAnswerWithTrue" classname="com.thefallersgames.PluginTest" time="0.006"/>
+  <testcase name="shouldAnswerWithTrue" classname="com.thefallersgames.PluginTest" time="0.003"/>
 </testsuite>

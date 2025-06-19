@@ -121,6 +121,13 @@ public class PlayerManager {
                 gameTaskService.addPlayerToBossBar(game.getName(), player);
                 gameTaskService.updateLobbyBossBar(game);
                 
+                // Show a splash screen to the player
+                player.sendTitle(
+                    ChatColor.GOLD + "Game Joined!",
+                    ChatColor.AQUA + "Welcome to " + game.getName(),
+                    10, 60, 20
+                );
+                
                 logger.info("Added player " + player.getName() + " to game " + game.getName());
                 teleportFuture.complete(true);
             } else {

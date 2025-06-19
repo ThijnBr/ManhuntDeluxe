@@ -32,6 +32,7 @@ public class Plugin extends JavaPlugin {
     private HeadstartManager headstartManager;
     private StatsManager statsManager;
     private MultiverseInventoriesApi inventoriesApi;
+    private boolean multiverseAvailable = false;
 
     @Override
     public void onEnable() {
@@ -40,28 +41,34 @@ public class Plugin extends JavaPlugin {
         
         // Check for Multiverse-Core
         if (Bukkit.getPluginManager().getPlugin("Multiverse-Core") == null) {
-            LOGGER.severe("Multiverse-Core is not installed or not enabled! This plugin will be disabled.");
-            getServer().getPluginManager().disablePlugin(this);
-            return;
-        }
-        
-        // Check for Multiverse-Inventories (optional)
-        if (Bukkit.getPluginManager().getPlugin("Multiverse-Inventories") != null) {
-            try {
-                inventoriesApi = MultiverseInventoriesApi.get();
-                LOGGER.info("Multiverse-Inventories detected and initialized successfully");
-            } catch (Exception e) {
-                LOGGER.warning("Multiverse-Inventories found but could not be initialized properly. " +
-                               "Inventory sharing between dimensions won't be available.");
+            LOGGER.warning("Multiverse-Core not found. Custom world generation will be disabled.");
+            LOGGER.warning("Games can only be created in existing worlds using '/manhunt currentworld'.");
+            multiverseAvailable = false;
+        } else {
+            multiverseAvailable = true;
+            LOGGER.info("Multiverse-Core found. Full functionality available.");
+            
+            // Check for Multiverse-Inventories (optional)
+            if (Bukkit.getPluginManager().getPlugin("Multiverse-Inventories") != null) {
+                try {
+                    inventoriesApi = MultiverseInventoriesApi.get();
+                    LOGGER.info("Multiverse-Inventories detected and initialized successfully");
+                } catch (Exception e) {
+                    LOGGER.warning("Multiverse-Inventories found but could not be initialized properly. " +
+                                "Inventory sharing between dimensions won't be available.");
+                    inventoriesApi = null;
+                }
+            } else {
+                LOGGER.info("Multiverse-Inventories not found. Inventory sharing between dimensions won't be available.");
                 inventoriesApi = null;
             }
-        } else {
-            LOGGER.info("Multiverse-Inventories not found. Inventory sharing between dimensions won't be available.");
-            inventoriesApi = null;
+            
+            // Initialize services that require Multiverse
+            worldManagementService = new WorldManagementService(this, MultiverseCoreApi.get(), inventoriesApi);
+            
+            // Clean up any leftover worlds from previous server runs
+            worldManagementService.cleanupAllManhuntWorlds(false);
         }
-        
-        // Initialize services
-        worldManagementService = new WorldManagementService(this, MultiverseCoreApi.get(), inventoriesApi);
         
         // Continue with normal initialization
         lobbyService = new LobbyService(this);
@@ -126,7 +133,7 @@ public class Plugin extends JavaPlugin {
                     LOGGER.severe("Error saving player stats: " + e.getMessage());
                 }
             }
-            
+
             // Cancel any potentially running tasks explicitly
             try {
                 Bukkit.getScheduler().cancelTasks(this);
@@ -137,6 +144,7 @@ public class Plugin extends JavaPlugin {
             LOGGER.info("Manhunt Deluxe plugin has been disabled!");
         } catch (Exception e) {
             LOGGER.severe("Unexpected error during plugin shutdown: " + e.getMessage());
+            e.printStackTrace();
         }
     }
     
@@ -210,5 +218,14 @@ public class Plugin extends JavaPlugin {
      */
     public StatsManager getStatsManager() {
         return statsManager;
+    }
+    
+    /**
+     * Checks if Multiverse-Core is available.
+     * 
+     * @return True if Multiverse-Core is available, false otherwise
+     */
+    public boolean isMultiverseAvailable() {
+        return multiverseAvailable;
     }
 }
