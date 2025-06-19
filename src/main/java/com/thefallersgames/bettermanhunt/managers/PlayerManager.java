@@ -5,11 +5,16 @@ import com.thefallersgames.bettermanhunt.models.Game;
 import com.thefallersgames.bettermanhunt.models.GameState;
 import com.thefallersgames.bettermanhunt.services.GameTaskService;
 import com.thefallersgames.bettermanhunt.services.LobbyService;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.ChatColor;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.UUID;
 import java.util.logging.Logger;
+import java.util.concurrent.CompletableFuture;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Manages players in Manhunt games (adding, removing, etc.).
@@ -21,8 +26,10 @@ public class PlayerManager {
     private final GameTaskService gameTaskService;
     private final PlayerStateManager playerStateManager;
     private final HeadstartManager headstartManager;
-    private final com.thefallersgames.bettermanhunt.services.WorldManagementService worldManagementService;
     private final LobbyService lobbyService;
+    
+    // Map to track teleportation tasks
+    private final Map<UUID, BukkitTask> pendingTeleports = new HashMap<>();
 
     /**
      * Constructs a new PlayerManager.
@@ -45,7 +52,6 @@ public class PlayerManager {
         this.gameTaskService = gameTaskService;
         this.playerStateManager = playerStateManager;
         this.headstartManager = headstartManager;
-        this.worldManagementService = plugin.getWorldManagementService();
         this.lobbyService = plugin.getLobbyService();
     }
 
@@ -67,78 +73,66 @@ public class PlayerManager {
             }
             removePlayerFromGame(player);
         }
-
-        // Check if the player can teleport to the world
-        if (!worldManagementService.isWorldAccessibleForTeleport(game.getWorld(), player)) {
-            player.sendMessage(ChatColor.RED + "You cannot be teleported to the game world. Game join aborted.");
+        
+        // Only allow joining lobby games
+        if (game.getState() != GameState.LOBBY) {
+            player.sendMessage(ChatColor.RED + "Cannot join - game is already in progress.");
             return false;
         }
         
         // Save player's current inventory and state
         playerStateManager.savePlayerState(player);
         
-        if (game.getState() == GameState.LOBBY) {
-            // Auto-assign player to a team if they're not already on one
-            if (!game.isHunter(player) && !game.isRunner(player) && !game.isSpectator(player)) {
-                // If there are more hunters than runners, make player a runner
-                if (game.getHunters().size() > game.getRunners().size()) {
-                    game.addRunner(player);
-                    player.sendMessage("§aYou have been assigned to the §bRunner §ateam! Use the team selector item to change teams.");
-                } else {
-                    // Otherwise, make player a hunter
-                    game.addHunter(player);
-                    player.sendMessage("§aYou have been assigned to the §cHunter §ateam! Use the team selector item to change teams.");
-                }
+        // Cancel any pending teleport tasks
+        cancelPendingTeleport(playerId);
+        
+        // Auto-assign player to a team if they're not already on one
+        if (!game.isHunter(player) && !game.isRunner(player) && !game.isSpectator(player)) {
+            // If there are more hunters than runners, make player a runner
+            if (game.getHunters().size() > game.getRunners().size()) {
+                game.addRunner(player);
+                player.sendMessage("§aYou have been assigned to the §bRunner §ateam! Use the team selector item to change teams.");
+            } else {
+                // Otherwise, make player a hunter
+                game.addHunter(player);
+                player.sendMessage("§aYou have been assigned to the §cHunter §ateam! Use the team selector item to change teams.");
             }
-            
-            // Set lobby-specific player states
-            lobbyService.setupLobbyPlayerState(player);
-            
-            // First teleport player to the glass capsule above the world spawn
-            // Only continue if teleportation succeeds
+        }
+        
+        // Set lobby-specific player states
+        lobbyService.setupLobbyPlayerState(player);
+        
+        // First attempt teleportation to the lobby capsule in the game world
+        CompletableFuture<Boolean> teleportFuture = new CompletableFuture<>();
+        
+        // Use task to attempt teleportation
+        BukkitTask task = Bukkit.getScheduler().runTask(plugin, () -> {
+            // Try to teleport to the lobby capsule in the game world
             boolean teleportSuccess = lobbyService.teleportToLobbyCapsule(player, game);
-            if (!teleportSuccess) {
-                // Revert team assignment and return false
-                game.removePlayer(player);
-                playerStateManager.restorePlayerState(player);
-                player.sendMessage(ChatColor.RED + "Failed to teleport to the game world. Game join aborted.");
-                return false;
-            }
             
-            // Then give lobby items to the player
-            plugin.getGuiManager().giveLobbyItems(player, game);
-        } else {
-            // We already checked if teleportation is possible, so just teleport them
-            try {
-                boolean teleportSuccess = player.teleport(game.getWorld().getSpawnLocation());
-                if (!teleportSuccess) {
-                    // Teleport failed, restore player state and abort
-                    playerStateManager.restorePlayerState(player);
-                    player.sendMessage(ChatColor.RED + "Failed to teleport to the game world. Game join aborted.");
-                    return false;
-                }
-            } catch (Exception e) {
-                // This shouldn't happen as we already checked, but just in case
-                logger.warning("Failed to teleport player " + player.getName() + " to game world: " + e.getMessage());
+            if (teleportSuccess) {
+                // Add player to game registry
+                gameRegistry.addPlayerToGame(player, game);
+                
+                // Give lobby items to the player
+                plugin.getGuiManager().giveLobbyItems(player, game);
+                
+                // Add to lobby boss bar and update it
+                gameTaskService.addPlayerToBossBar(game.getName(), player);
+                gameTaskService.updateLobbyBossBar(game);
+                
+                logger.info("Added player " + player.getName() + " to game " + game.getName());
+                teleportFuture.complete(true);
+            } else {
+                // Teleport failed, restore player state and abort
                 playerStateManager.restorePlayerState(player);
-                player.sendMessage(ChatColor.RED + "Failed to teleport to the game world. Game join aborted.");
-                return false;
+                player.sendMessage(ChatColor.RED + "Failed to teleport to the game lobby capsule. Game join aborted.");
+                teleportFuture.complete(false);
             }
-        }
+        });
         
-        // Add player to game registry ONLY if all previous steps succeeded
-        gameRegistry.addPlayerToGame(player, game);
+        pendingTeleports.put(playerId, task);
         
-        // Add boss bar if game is active or create one if in lobby
-        if (game.getState() != GameState.LOBBY) {
-            gameTaskService.addPlayerToBossBar(game.getName(), player);
-        } else {
-            // Add to lobby boss bar and update it
-            gameTaskService.addPlayerToBossBar(game.getName(), player);
-            gameTaskService.updateLobbyBossBar(game);
-        }
-        
-        logger.info("Added player " + player.getName() + " to game " + game.getName());
         return true;
     }
 
@@ -156,6 +150,9 @@ public class PlayerManager {
             return false;
         }
         
+        // Cancel any pending teleports for this player
+        cancelPendingTeleport(playerId);
+        
         Game game = gameRegistry.getGame(gameName);
         if (game != null) {
             // Make sure player is unfrozen if they were a hunter
@@ -163,7 +160,10 @@ public class PlayerManager {
                 headstartManager.unfreezeHunter(player);
             }
             
+            // Remove from the game object
             game.removePlayer(player);
+            
+            // Remove from game registry
             gameRegistry.removePlayerFromGame(playerId);
             
             // Remove player from boss bar
@@ -173,13 +173,28 @@ public class PlayerManager {
             if (game.getState() == GameState.LOBBY) {
                 gameTaskService.updateLobbyBossBar(game);
             }
+            
+            // Schedule task to teleport the player out and restore state
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                // Restore player's state which includes teleportation
+                playerStateManager.restorePlayerState(player);
+            });
         }
-        
-        // Restore player's state
-        playerStateManager.restorePlayerState(player);
         
         logger.info("Removed player " + player.getName() + " from game " + gameName);
         return true;
+    }
+    
+    /**
+     * Cancels any pending teleport tasks for a player.
+     * 
+     * @param playerId The UUID of the player
+     */
+    private void cancelPendingTeleport(UUID playerId) {
+        BukkitTask task = pendingTeleports.remove(playerId);
+        if (task != null && !task.isCancelled()) {
+            task.cancel();
+        }
     }
 
     /**

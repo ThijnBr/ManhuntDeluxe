@@ -20,6 +20,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Handles GUI interactions and special item usage.
@@ -143,10 +144,10 @@ public class GuiListener implements Listener {
             player.sendMessage(ChatColor.GREEN + "Generating new world for your manhunt game...");
             
             // Generate a game name
-            String gameName = "Game_" + player.getName() + "_" + random.nextInt(1000);
+            String gameName = "manhunt_Game_" + player.getName() + "_" + random.nextInt(1000);
             
             // Generate a new world using the WorldManagementService
-            plugin.getWorldManagementService().generateWorldAsync(gameName).thenAccept(world -> {
+            plugin.getWorldManagementService().createWorldWithMultiverse(gameName).thenAccept(world -> {
                 if (world != null) {
                     // Create the game with the new world
                     plugin.getServer().getScheduler().runTask(plugin, () -> {
@@ -300,10 +301,18 @@ public class GuiListener implements Listener {
                     gameManager.removePlayerFromGame(player);
                     player.sendMessage(ChatColor.GREEN + "You left the game.");
                 } else if (itemName.equals("Force Start") && game.isOwner(player)) {
-                    boolean started = gameManager.startGame(game);
-                    if (!started) {
-                        player.sendMessage(ChatColor.RED + "Failed to start game. Make sure there is at least one hunter and one runner.");
-                    }
+                    player.sendMessage(ChatColor.YELLOW + "Starting game...");
+                    
+                    // Handle the CompletableFuture return type
+                    gameManager.startGame(game).thenAccept(started -> {
+                        if (!started) {
+                            player.sendMessage(ChatColor.RED + "Failed to start game. Make sure there is at least one hunter and one runner.");
+                        }
+                    }).exceptionally(ex -> {
+                        player.sendMessage(ChatColor.RED + "An error occurred while starting the game: " + ex.getMessage());
+                        plugin.getLogger().severe("Error starting game: " + ex.getMessage());
+                        return null;
+                    });
                 } else if (itemName.equals("Delete Game") && game.isOwner(player)) {
                     gameManager.deleteGame(game.getName());
                     player.sendMessage(ChatColor.GREEN + "Game deleted.");

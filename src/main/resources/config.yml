@@ -15,3 +15,15 @@ default-team-chat: false
 # Game settings
 # How long to display the game end screen before resetting to lobby (in seconds)
 game-end-display-time: 10
+
+# Lobby settings
+# The lobby location is set via the /manhunt setlobby command
+# and will be saved here automatically
+lobby:
+  # This will be populated when you use /manhunt setlobby
+  # world: world
+  # x: 0
+  # y: 64
+  # z: 0
+  # yaw: 0
+  # pitch: 0

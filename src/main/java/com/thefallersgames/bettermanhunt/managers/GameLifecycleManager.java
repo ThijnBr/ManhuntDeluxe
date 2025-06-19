@@ -8,9 +8,14 @@ import com.thefallersgames.bettermanhunt.models.GameState;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.World;
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.logging.Logger;
 
 /**
@@ -93,11 +98,34 @@ public class GameLifecycleManager {
         String worldName = game.getWorld().getName();
         boolean isDynamicallyGenerated = worldName.startsWith("manhunt_");
 
+        // Set game state to DELETING if not already in ENDING or DELETING state
+        if (game.getState() != GameState.ENDING && game.getState() != GameState.DELETING) {
+            game.setState(GameState.DELETING);
+        }
+
+        // Create a copy of player UUIDs to avoid concurrent modification
+        Set<UUID> allPlayers = new HashSet<>(game.getAllPlayers());
+        
         // Clean up players in the game
-        for (UUID playerId : game.getAllPlayers()) {
+        for (UUID playerId : allPlayers) {
             Player player = Bukkit.getPlayer(playerId);
             if (player != null) {
+                // Make sure player is unfrozen if they were a hunter
+                if (headstartManager.isPlayerFrozen(playerId)) {
+                    headstartManager.unfreezeHunter(player);
+                }
+                
+                // First remove player from the game to ensure no more game events affect them
+                game.removePlayer(player);
+                gameRegistry.removePlayerFromGame(playerId);
+                
+                // Then restore their state
                 playerStateManager.restorePlayerState(player);
+                
+                // Remove from boss bar
+                gameTaskService.removePlayerFromBossBar(gameName, player);
+                
+                player.sendMessage("§cThe game has been deleted.");
             }
         }
         
@@ -107,15 +135,42 @@ public class GameLifecycleManager {
         
         // If this was a dynamically generated world, delete it
         if (isDynamicallyGenerated) {
-            // Schedule world deletion after a short delay to ensure all players are out
-            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            // Check if the plugin is being disabled
+            if (!plugin.isEnabled()) {
+                // Plugin is being disabled, delete the world synchronously
                 boolean deleted = worldManagementService.deleteWorld(worldName);
                 if (deleted) {
-                    logger.info("Deleted dynamically generated world: " + worldName);
+                    logger.info("Deleted dynamically generated world during shutdown: " + worldName);
                 } else {
-                    logger.warning("Failed to delete dynamically generated world: " + worldName);
+                    logger.warning("Failed to delete dynamically generated world during shutdown: " + worldName + 
+                                  ". The server might need to clean it up on next restart.");
                 }
-            }, 20L); // 1 second delay
+            } else {
+                // Plugin is still enabled, schedule world deletion after a short delay
+                Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    boolean deleted = worldManagementService.deleteWorld(worldName);
+                    if (deleted) {
+                        logger.info("Deleted dynamically generated world: " + worldName);
+                    } else {
+                        logger.warning("Failed to delete dynamically generated world: " + worldName);
+                        
+                        // Only attempt a second time if the plugin is still enabled
+                        if (plugin.isEnabled()) {
+                            // Attempt to force delete after an additional delay if first attempt failed
+                            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                                if (plugin.isEnabled()) {
+                                    boolean forcedDelete = worldManagementService.deleteWorld(worldName);
+                                    if (forcedDelete) {
+                                        logger.info("Successfully force-deleted world: " + worldName);
+                                    } else {
+                                        logger.severe("Failed to force-delete world: " + worldName + ". Manual cleanup may be required.");
+                                    }
+                                }
+                            }, 100L); // 5 second additional delay
+                        }
+                    }
+                }, 40L); // 2 second delay
+            }
         }
         
         logger.info("Deleted game: " + gameName);
@@ -126,25 +181,104 @@ public class GameLifecycleManager {
      * Starts a Manhunt game.
      *
      * @param game The game to start
-     * @return True if the game was started, false if there's an issue starting the game
+     * @return CompletableFuture<Boolean> that completes with true if started successfully, false otherwise
      */
-    public boolean startGame(Game game) {
+    public CompletableFuture<Boolean> startGame(Game game) {
+        CompletableFuture<Boolean> result = new CompletableFuture<>();
+        
         if (game.getState() != GameState.LOBBY) {
-            return false;
+            result.complete(false);
+            return result;
         }
         
         if (game.getRunners().isEmpty() || game.getHunters().isEmpty()) {
-            return false; // Need at least one runner and one hunter
+            result.complete(false); // Need at least one runner and one hunter
+            return result;
         }
 
-        // Set up the game
-        game.setState(GameState.ACTIVE);
+        // Set to STARTING state
+        game.setState(GameState.STARTING);
         
-        // Set up boss bar and prepare players
-        gameTaskService.setupGameStart(game, (g, player, isHunter) -> gameSetupManager.setupPlayer(g, player, isHunter));
+        // Get all players before teleportation starts
+        Set<UUID> allPlayers = new HashSet<>(game.getAllPlayers());
+        AtomicInteger pendingTeleports = new AtomicInteger(allPlayers.size());
         
+        // Set up boss bar for the starting state
+        gameTaskService.setupStartingBossBar(game);
+        
+        // Now teleport all players from the lobby capsule to the spawn position
+        game.setState(GameState.TELEPORTING);
+        
+        // Get spawn location - this is where players will be teleported
+        Location spawnLocation = game.getSpawnLocation();
+        
+        for (UUID playerId : allPlayers) {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player == null) {
+                // Decrement counter for invalid players
+                if (pendingTeleports.decrementAndGet() == 0) {
+                    finalizeGameStart(game, result);
+                }
+                continue;
+            }
+            
+            // Schedule teleport on the main thread - from lobby capsule to spawn position
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                boolean teleportSuccess = player.teleport(spawnLocation);
+                
+                if (!teleportSuccess) {
+                    player.sendMessage("§cFailed to teleport to the game spawn position!");
+                    // Handle teleport failure - don't remove from game, but log the issue
+                    logger.warning("Failed to teleport player " + player.getName() + " to spawn position");
+                }
+                
+                // Continue with remaining teleports regardless
+                if (pendingTeleports.decrementAndGet() == 0) {
+                    // All teleports attempted, check if we still have enough players
+                    if (game.getRunners().isEmpty() || game.getHunters().isEmpty()) {
+                        // Not enough players after teleportation, cancel game
+                        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                            game.setState(GameState.ENDING);
+                            deleteGame(game.getName());
+                            result.complete(false);
+                        }, 1L);
+                    } else {
+                        // Proceed with game start
+                        finalizeGameStart(game, result);
+                    }
+                }
+            });
+        }
+        
+        return result;
+    }
+    
+    /**
+     * Finalizes the game start after all teleportations are complete
+     */
+    private void finalizeGameStart(Game game, CompletableFuture<Boolean> result) {
+        // Switch to headstart mode if headstart is enabled
+        if (game.getHeadstartDuration() > 0) {
+            game.setState(GameState.HEADSTART);
+            
+            // Set up the headstart mechanics
+            gameTaskService.setupHeadstart(game, (g, player, isHunter) -> gameSetupManager.setupPlayer(g, player, isHunter));
+            
+            // Start the headstart timer which will transition to ACTIVE when done
+            headstartManager.startHeadstart(game, () -> {
+                // This will be called when headstart completes
+                game.setState(GameState.ACTIVE);
+                gameTaskService.transitionToActiveState(game);
+            });
+        } else {
+            // No headstart - go directly to active state
+            game.setState(GameState.ACTIVE);
+            gameTaskService.setupGameStart(game, (g, player, isHunter) -> gameSetupManager.setupPlayer(g, player, isHunter));
+        }
+        
+        // Mark the start as successful
+        result.complete(true);
         logger.info("Started game: " + game.getName());
-        return true;
     }
 
     /**
@@ -154,11 +288,16 @@ public class GameLifecycleManager {
      * @param runnersWon Whether the runners won
      */
     public void endGame(Game game, boolean runnersWon) {
-        if (game.getState() == GameState.GAME_ENDED) {
+        // Don't do anything if the game is already in an ending state
+        if (game.getState() == GameState.RUNNERS_WON || 
+            game.getState() == GameState.HUNTERS_WON || 
+            game.getState() == GameState.ENDING || 
+            game.getState() == GameState.DELETING) {
             return;
         }
         
-        game.setState(GameState.GAME_ENDED);
+        // Set appropriate game state
+        game.setState(runnersWon ? GameState.RUNNERS_WON : GameState.HUNTERS_WON);
         
         // Unfreeze any hunters that might still be frozen
         headstartManager.unfreezeHunters(game);
@@ -166,37 +305,104 @@ public class GameLifecycleManager {
         // Update boss bar and display winner
         gameTaskService.handleGameEnd(game, runnersWon);
         
-        // Schedule task to reset game after some time
-        Bukkit.getScheduler().runTaskLater(plugin, () -> resetGame(game), 200L); // 10 seconds
+        // Schedule task to clean up the game after showing results
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            // Transition to ENDING state
+            game.setState(GameState.ENDING);
+            
+            // Start the cleanup process
+            cleanup(game);
+        }, 200L); // 10 seconds
         
         logger.info("Ended game: " + game.getName() + " - Runners won: " + runnersWon);
     }
     
     /**
-     * Resets a game to lobby state
+     * Cleans up a game and removes all players
      */
-    private void resetGame(Game game) {
-        // Reset game state to lobby if it still exists
-        if (gameRegistry.gameExists(game.getName())) {
-            game.setState(GameState.LOBBY);
-            
-            // Remove boss bar
-            gameTaskService.removeBossBar(game.getName());
-            
-            // Reset players and remove from game
-            for (UUID playerId : game.getAllPlayers()) {
-                Player player = Bukkit.getPlayer(playerId);
-                if (player != null) {
-                    playerStateManager.restorePlayerState(player);
-                    // Remove player from the game
+    private void cleanup(Game game) {
+        // Make a copy of all players to avoid concurrent modification issues
+        Set<UUID> allPlayers = new HashSet<>(game.getAllPlayers());
+        
+        // Track how many players we're attempting to teleport out
+        AtomicInteger pendingTeleports = new AtomicInteger(allPlayers.size());
+        
+        if (pendingTeleports.get() == 0) {
+            // No players to teleport, proceed to delete game
+            deleteGame(game.getName());
+            return;
+        }
+        
+        // Process all players
+        for (UUID playerId : allPlayers) {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player != null) {
+                // Only schedule if plugin is enabled
+                if (plugin.isEnabled()) {
+                    // Schedule restoration on main thread
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        // First remove from the game
+                        game.removePlayer(player);
+                        gameRegistry.removePlayerFromGame(player.getUniqueId());
+                        
+                        // Then restore player state (which will teleport them to lobby/restore location)
+                        playerStateManager.restorePlayerState(player);
+                        
+                        // Remove from boss bar
+                        gameTaskService.removePlayerFromBossBar(game.getName(), player);
+                        
+                        // Check if all teleports are complete
+                        if (pendingTeleports.decrementAndGet() == 0) {
+                            // Only schedule deletion if plugin is still enabled
+                            if (plugin.isEnabled()) {
+                                // Schedule game deletion 
+                                Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                                    if (plugin.isEnabled()) {
+                                        deleteGame(game.getName());
+                                    } else {
+                                        // Direct deletion without scheduling
+                                        deleteGame(game.getName());
+                                    }
+                                }, 20L); // 1 second delay after teleports
+                            } else {
+                                // Direct deletion without scheduling
+                                deleteGame(game.getName());
+                            }
+                        }
+                    });
+                } else {
+                    // Plugin is being disabled, do direct cleanup
                     game.removePlayer(player);
+                    gameRegistry.removePlayerFromGame(player.getUniqueId());
+                    playerStateManager.restorePlayerState(player);
+                    gameTaskService.removePlayerFromBossBar(game.getName(), player);
+                    
+                    // Decrement counter
+                    if (pendingTeleports.decrementAndGet() == 0) {
+                        // Direct deletion without scheduling
+                        deleteGame(game.getName());
+                    }
+                }
+            } else {
+                // Player is null, just decrement counter
+                if (pendingTeleports.decrementAndGet() == 0) {
+                    // All players processed
+                    if (plugin.isEnabled()) {
+                        // Schedule deletion if plugin is still enabled
+                        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                            if (plugin.isEnabled()) {
+                                deleteGame(game.getName());
+                            } else {
+                                // Direct deletion without scheduling
+                                deleteGame(game.getName());
+                            }
+                        }, 20L);
+                    } else {
+                        // Direct deletion without scheduling
+                        deleteGame(game.getName());
+                    }
                 }
             }
-            
-            // Delete the game
-            deleteGame(game.getName());
-            
-            logger.info("Reset and removed game: " + game.getName());
         }
     }
 
@@ -207,7 +413,10 @@ public class GameLifecycleManager {
      * @param game The game the player is in
      */
     public void handleRunnerDeath(Player player, Game game) {
-        if (game == null || game.getState() != GameState.ACTIVE || !game.isRunner(player)) {
+        if (game == null || 
+            (game.getState() != GameState.ACTIVE && 
+             game.getState() != GameState.HEADSTART) || 
+            !game.isRunner(player)) {
             return;
         }
         
@@ -219,6 +428,32 @@ public class GameLifecycleManager {
         if (game.getRunners().isEmpty()) {
             // Hunters win
             endGame(game, false);
+        }
+    }
+    
+    /**
+     * Checks for endgame conditions and triggers game end if met
+     * 
+     * @param game The game to check
+     */
+    public void checkEndgameConditions(Game game) {
+        if (game == null || 
+            (game.getState() != GameState.ACTIVE && 
+             game.getState() != GameState.HEADSTART)) {
+            return;
+        }
+        
+        // Check game ending conditions
+        if (game.getRunners().isEmpty()) {
+            logger.info("No runners left in the game. Hunters win!");
+            endGame(game, false); // Hunters win
+            return;
+        }
+        
+        if (game.getHunters().isEmpty()) {
+            logger.info("No hunters left in the game. Runners win!");
+            endGame(game, true); // Runners win
+            return;
         }
     }
 } 

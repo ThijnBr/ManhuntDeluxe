@@ -79,7 +79,7 @@ public class GuiManager {
             }
         }
         
-        GuiUtil.fillEmptySlots(gui, Material.GLASS);
+        GuiUtil.fillEmptySlots(gui, Material.LIGHT_GRAY_STAINED_GLASS_PANE);
         player.openInventory(gui);
         openInventories.put(player.getUniqueId(), GAME_SELECTION_GUI);
     }

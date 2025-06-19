@@ -14,6 +14,11 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.logging.Logger;
+import java.util.concurrent.CompletableFuture;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
+import org.bukkit.Bukkit;
 
 /**
  * Manages all Manhunt games and their lifecycles.
@@ -32,6 +37,7 @@ public class GameManager implements Listener {
     private final PlayerManager playerManager;
     private final GameSetupManager gameSetupManager;
     private final LobbyService lobbyService;
+    private final StatsManager statsManager;
 
     /**
      * Constructs a new GameManager.
@@ -51,6 +57,7 @@ public class GameManager implements Listener {
         this.gameTaskService = plugin.getGameTaskService();
         this.gameSetupManager = this.gameTaskService.getGameSetupManager();
         this.lobbyService = plugin.getLobbyService();
+        this.statsManager = plugin.getStatsManager();
         
         // Initialize managers that depend on other managers
         this.lifecycleManager = new GameLifecycleManager(
@@ -90,7 +97,20 @@ public class GameManager implements Listener {
      * @return True if the player was added, false if the player is already in a different game
      */
     public boolean addPlayerToGame(Player player, Game game) {
-        return playerManager.addPlayerToGame(player, game);
+        // Don't allow joining games that are not in LOBBY state
+        if (game.getState() != GameState.LOBBY) {
+            player.sendMessage("§cCannot join - game is already in progress.");
+            return false;
+        }
+        
+        boolean added = playerManager.addPlayerToGame(player, game);
+        
+        if (added) {
+            // Record that the player participated in a game
+            statsManager.recordGamePlayed(player);
+        }
+        
+        return added;
     }
 
     /**
@@ -114,23 +134,11 @@ public class GameManager implements Listener {
         
         if (removed) {
             // Handle active games
-            if (game.getState() == GameState.ACTIVE) {
-                // Check if this was a runner leaving
-                if (wasRunner) {
-                    // If no runners left, hunters win
-                    if (game.getRunners().isEmpty()) {
-                        logger.info("Last runner left the game. Hunters win!");
-                        lifecycleManager.endGame(game, false); // Hunters win
-                    }
-                }
-                // Check if this was a hunter leaving
-                else if (wasHunter) {
-                    // If no hunters left, runners win
-                    if (game.getHunters().isEmpty()) {
-                        logger.info("Last hunter left the game. Runners win!");
-                        lifecycleManager.endGame(game, true); // Runners win
-                    }
-                }
+            if (game.getState() == GameState.ACTIVE || 
+                game.getState() == GameState.HEADSTART) {
+                
+                // Check game end conditions
+                lifecycleManager.checkEndgameConditions(game);
             }
             // Handle lobby games
             else if (game.getState() == GameState.LOBBY) {
@@ -163,6 +171,14 @@ public class GameManager implements Listener {
                     }
                 }
             }
+            // For other game states, just check end conditions
+            else if (game.getState() != GameState.RUNNERS_WON && 
+                     game.getState() != GameState.HUNTERS_WON &&
+                     game.getState() != GameState.ENDING &&
+                     game.getState() != GameState.DELETING) {
+                
+                lifecycleManager.checkEndgameConditions(game);
+            }
         }
         
         return removed;
@@ -183,9 +199,9 @@ public class GameManager implements Listener {
      * Starts a Manhunt game.
      *
      * @param game The game to start
-     * @return True if the game was started, false if there's an issue starting the game
+     * @return CompletableFuture<Boolean> that completes with true when the game is successfully started
      */
-    public boolean startGame(Game game) {
+    public CompletableFuture<Boolean> startGame(Game game) {
         return lifecycleManager.startGame(game);
     }
 
@@ -196,6 +212,10 @@ public class GameManager implements Listener {
      * @param runnersWon Whether the runners won
      */
     public void endGame(Game game, boolean runnersWon) {
+        // Record game result in stats before ending the game
+        statsManager.recordGameResult(game, runnersWon);
+        
+        // End the game
         lifecycleManager.endGame(game, runnersWon);
     }
 
@@ -207,6 +227,15 @@ public class GameManager implements Listener {
     public void handleRunnerDeath(Player player) {
         Game game = playerManager.getPlayerGame(player);
         lifecycleManager.handleRunnerDeath(player, game);
+    }
+    
+    /**
+     * Check if game end conditions are met and end the game if necessary.
+     * 
+     * @param game The game to check
+     */
+    public void checkEndgameConditions(Game game) {
+        lifecycleManager.checkEndgameConditions(game);
     }
 
     /**
@@ -239,12 +268,21 @@ public class GameManager implements Listener {
     }
 
     /**
-     * Gets all games in lobby or active state.
+     * Gets all games in lobby state.
      *
-     * @return A list of all lobby or active games
+     * @return A list of all lobby games
      */
-    public List<Game> getActiveOrLobbyGames() {
-        return gameRegistry.getGamesWithStates(GameState.LOBBY, GameState.ACTIVE);
+    public List<Game> getLobbyGames() {
+        return gameRegistry.getGamesWithStates(GameState.LOBBY);
+    }
+    
+    /**
+     * Gets all active games (in HEADSTART or ACTIVE state).
+     * 
+     * @return A list of all active games
+     */
+    public List<Game> getActiveGames() {
+        return gameRegistry.getGamesWithStates(GameState.HEADSTART, GameState.ACTIVE);
     }
     
     /**
@@ -291,9 +329,52 @@ public class GameManager implements Listener {
      * Cleans up all games and tasks.
      */
     public void cleanup() {
-        for (String gameName : gameRegistry.getAllGameNames()) {
-            deleteGame(gameName);
+        logger.info("Starting cleanup of all games...");
+        
+        try {
+            // Make a copy of all game names to avoid concurrent modification issues
+            List<String> gameNames = new ArrayList<>(gameRegistry.getAllGameNames());
+            
+            // Delete all active games synchronously
+            for (String gameName : gameNames) {
+                try {
+                    Game game = gameRegistry.getGame(gameName);
+                    if (game != null) {
+                        logger.info("Cleaning up game during shutdown: " + gameName);
+                        
+                        // Make sure all players are removed from the game properly
+                        Set<UUID> allPlayers = new HashSet<>(game.getAllPlayers());
+                        for (UUID playerId : allPlayers) {
+                            Player player = Bukkit.getPlayer(playerId);
+                            if (player != null) {
+                                // Remove player from game tracking
+                                game.removePlayer(player);
+                                gameRegistry.removePlayerFromGame(playerId);
+                                
+                                // Make sure player is unfrozen if they were a hunter
+                                if (headstartManager.isPlayerFrozen(playerId)) {
+                                    headstartManager.unfreezeHunter(player);
+                                }
+                            }
+                        }
+                        
+                        // Now delete the game
+                        lifecycleManager.deleteGame(gameName);
+                    }
+                } catch (Exception e) {
+                    logger.severe("Error cleaning up game " + gameName + ": " + e.getMessage());
+                    // Continue with other games even if one fails
+                }
+            }
+            
+        } catch (Exception e) {
+            logger.severe("Error during game cleanup: " + e.getMessage());
         }
+        
+        // Save stats before disabling
+        statsManager.saveStats();
+        
+        logger.info("Game cleanup complete");
     }
     
     /**
@@ -321,6 +402,15 @@ public class GameManager implements Listener {
      */
     public PlayerStateManager getPlayerStateManager() {
         return playerStateManager;
+    }
+    
+    /**
+     * Gets the stats manager.
+     *
+     * @return The stats manager
+     */
+    public StatsManager getStatsManager() {
+        return statsManager;
     }
 
     /**

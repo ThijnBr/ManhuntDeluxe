@@ -21,9 +21,10 @@
       <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
     </repository>
     <repository>
-      <id>onarandombox</id>
-      <url>https://repo.onarandombox.com/content/groups/public/</url>
+        <id>onarandombodx</id>
+        <url>https://repo.onarandombox.com/content/groups/public/</url>
     </repository>
+
   </repositories>
 
   <dependencies>
@@ -34,12 +35,20 @@
       <version>${spigot.version}</version>
       <scope>provided</scope>
     </dependency>
+
     <!-- Multiverse-Core -->
     <dependency>
-      <groupId>com.onarandombox.multiversecore</groupId>
-      <artifactId>Multiverse-Core</artifactId>
-      <version>4.3.1</version>
-      <scope>provided</scope>
+        <groupId>org.mvplugins.multiverse.core</groupId> <!-- Replace for other sub-modules -->
+        <artifactId>multiverse-core</artifactId> <!-- Replace for other sub-modules -->
+        <version>5.0.0-SNAPSHOT</version> <!-- Replace with the version you need -->
+        <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+        <groupId>org.mvplugins.multiverse.inventories</groupId> <!-- Replace for other sub-modules -->
+        <artifactId>multiverse-inventories</artifactId> <!-- Replace for other sub-modules -->
+        <version>5.0.0-SNAPSHOT</version> <!-- Replace with the version you need -->
+        <scope>provided</scope>
     </dependency>
 
     <!-- Test dependencies -->
@@ -47,24 +56,6 @@
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
       <version>${junit.version}</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.mockito</groupId>
-      <artifactId>mockito-core</artifactId>
-      <version>${mockito.version}</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.powermock</groupId>
-      <artifactId>powermock-module-junit4</artifactId>
-      <version>${powermock.version}</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.powermock</groupId>
-      <artifactId>powermock-api-mockito2</artifactId>
-      <version>${powermock.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -78,23 +69,6 @@
         <configuration>
           <source>${java.version}</source>
           <target>${java.version}</target>
-        </configuration>
-      </plugin>
-      <!-- Surefire configured for PowerMock -->
-      <plugin>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <version>2.22.2</version>
-        <configuration>
-          <dependenciesToScan>
-            <dependency>org.powermock:powermock-module-junit4</dependency>
-            <dependency>org.powermock:powermock-api-mockito2</dependency>
-          </dependenciesToScan>
-          <argLine>
-            --add-opens java.base/java.lang=ALL-UNNAMED
-            --add-opens java.base/java.util=ALL-UNNAMED
-            --add-opens java.logging/java.util.logging=ALL-UNNAMED
-            --add-opens java.base/java.io=ALL-UNNAMED
-          </argLine>
         </configuration>
       </plugin>
     </plugins>

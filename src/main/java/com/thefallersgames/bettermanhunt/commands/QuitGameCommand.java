@@ -3,6 +3,7 @@ package com.thefallersgames.bettermanhunt.commands;
 import com.thefallersgames.bettermanhunt.managers.GameManager;
 import com.thefallersgames.bettermanhunt.managers.GuiManager;
 import com.thefallersgames.bettermanhunt.models.Game;
+import com.thefallersgames.bettermanhunt.managers.PlayerStateManager;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -57,8 +58,19 @@ public class QuitGameCommand implements CommandExecutor {
         }
         
         // Remove player from the game
-        gameManager.removePlayerFromGame(player);
-        player.sendMessage(ChatColor.GREEN + "You have left the game.");
+        boolean success = gameManager.removePlayerFromGame(player);
+        
+        // Explicitly restore player state using the PlayerStateManager
+        PlayerStateManager playerStateManager = gameManager.getPlayerStateManager();
+        if (playerStateManager != null) {
+            playerStateManager.restorePlayerState(player);
+        }
+        
+        if (success) {
+            player.sendMessage(ChatColor.GREEN + "You have left the game and your previous state has been restored.");
+        } else {
+            player.sendMessage(ChatColor.RED + "Failed to leave the game properly. Please contact an administrator.");
+        }
         
         return true;
     }

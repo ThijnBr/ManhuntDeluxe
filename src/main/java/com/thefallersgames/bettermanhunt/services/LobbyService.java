@@ -34,20 +34,39 @@ public class LobbyService {
      * @return True if the lobby spawn was set, false if there was an error
      */
     public boolean setLobbySpawn(Player player) {
-        // Save the player's current location as the lobby spawn
-        lobbySpawn = player.getLocation().clone();
-        
-        // Save to config
-        FileConfiguration config = plugin.getConfig();
-        config.set("lobby.world", lobbySpawn.getWorld().getName());
-        config.set("lobby.x", lobbySpawn.getX());
-        config.set("lobby.y", lobbySpawn.getY());
-        config.set("lobby.z", lobbySpawn.getZ());
-        config.set("lobby.yaw", lobbySpawn.getYaw());
-        config.set("lobby.pitch", lobbySpawn.getPitch());
-        
-        plugin.saveConfig();
-        return true;
+        try {
+            // Save the player's current location as the lobby spawn
+            lobbySpawn = player.getLocation().clone();
+            
+            // Get the world name and coordinates for logging
+            String worldName = lobbySpawn.getWorld().getName();
+            double x = lobbySpawn.getX();
+            double y = lobbySpawn.getY();
+            double z = lobbySpawn.getZ();
+            float yaw = lobbySpawn.getYaw();
+            float pitch = lobbySpawn.getPitch();
+            
+            plugin.getLogger().info("Setting lobby spawn at: " + worldName + ", " + x + ", " + y + ", " + z);
+            
+            // Save to config
+            FileConfiguration config = plugin.getConfig();
+            config.set("lobby.world", worldName);
+            config.set("lobby.x", x);
+            config.set("lobby.y", y);
+            config.set("lobby.z", z);
+            config.set("lobby.yaw", yaw);
+            config.set("lobby.pitch", pitch);
+            
+            // Make sure to save the config
+            plugin.saveConfig();
+            plugin.getLogger().info("Lobby spawn location has been saved to config.yml");
+            
+            return true;
+        } catch (Exception e) {
+            plugin.getLogger().severe("Error setting lobby spawn: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
     }
     
     /**
@@ -79,6 +98,8 @@ public class LobbyService {
      */
     private void loadLobbySpawn() {
         FileConfiguration config = plugin.getConfig();
+        plugin.getLogger().info("Attempting to load lobby spawn from config...");
+        
         if (config.contains("lobby.world")) {
             String worldName = config.getString("lobby.world");
             double x = config.getDouble("lobby.x");
@@ -87,14 +108,16 @@ public class LobbyService {
             float yaw = (float) config.getDouble("lobby.yaw");
             float pitch = (float) config.getDouble("lobby.pitch");
             
+            plugin.getLogger().info("Found lobby data in config: World=" + worldName + ", X=" + x + ", Y=" + y + ", Z=" + z);
+            
             if (plugin.getServer().getWorld(worldName) != null) {
                 lobbySpawn = new Location(plugin.getServer().getWorld(worldName), x, y, z, yaw, pitch);
-                plugin.getLogger().info("Loaded lobby spawn at: " + worldName + ", " + x + ", " + y + ", " + z);
+                plugin.getLogger().info("Successfully loaded lobby spawn at: " + worldName + ", " + x + ", " + y + ", " + z);
             } else {
                 plugin.getLogger().warning("Could not load lobby spawn: world " + worldName + " does not exist");
             }
         } else {
-            plugin.getLogger().info("No lobby spawn set. Use /manhunt setlobby to set one.");
+            plugin.getLogger().info("No lobby spawn set in config. Use /manhunt setlobby to set one.");
         }
     }
     

@@ -45,6 +45,7 @@ public class PlayerStateManager {
     
     /**
      * Restores the player's state.
+     * Returns the player to the global lobby if set, or to their original location if not.
      *
      * @param player The player
      */
@@ -53,7 +54,7 @@ public class PlayerStateManager {
         if (state != null) {
             player.setGameMode(state.getGameMode());
             
-            // Check if the lobby spawn is set first, if so use that instead of original location
+            // Check if the global lobby spawn is set, if so use that instead of original location
             Location targetLocation;
             Location lobbySpawn = lobbyService.getLobbySpawn();
             if (lobbySpawn != null) {

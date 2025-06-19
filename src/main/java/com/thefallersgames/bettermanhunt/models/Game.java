@@ -19,6 +19,7 @@ public class Game {
     private final Set<UUID> hunters;
     private final Set<UUID> runners;
     private final Set<UUID> spectators;
+    private final Set<UUID> formerRunners; // Track runners who have died and become spectators
     private int headstartDuration; // in seconds
     private Location spawnLocation;
 
@@ -37,6 +38,7 @@ public class Game {
         this.hunters = new HashSet<>();
         this.runners = new HashSet<>();
         this.spectators = new HashSet<>();
+        this.formerRunners = new HashSet<>(); // Initialize former runners set
         this.headstartDuration = 30; // Default headstart of 30 seconds
         this.spawnLocation = world.getSpawnLocation().clone(); // Use the world's spawn location
     }
@@ -51,6 +53,7 @@ public class Game {
         UUID playerId = player.getUniqueId();
         runners.remove(playerId);
         spectators.remove(playerId);
+        formerRunners.remove(playerId); // Remove from former runners if they join hunters
         return hunters.add(playerId);
     }
 
@@ -64,6 +67,7 @@ public class Game {
         UUID playerId = player.getUniqueId();
         hunters.remove(playerId);
         spectators.remove(playerId);
+        formerRunners.remove(playerId); // Remove from former runners if they rejoin runners
         return runners.add(playerId);
     }
 
@@ -75,6 +79,12 @@ public class Game {
      */
     public boolean addSpectator(Player player) {
         UUID playerId = player.getUniqueId();
+        
+        // If they were a runner, remember that
+        if (runners.contains(playerId)) {
+            formerRunners.add(playerId);
+        }
+        
         hunters.remove(playerId);
         runners.remove(playerId);
         return spectators.add(playerId);
@@ -90,6 +100,7 @@ public class Game {
         hunters.remove(playerId);
         runners.remove(playerId);
         spectators.remove(playerId);
+        formerRunners.remove(playerId); // Also remove from former runners
     }
 
     /**
@@ -240,6 +251,26 @@ public class Game {
      */
     public Set<UUID> getSpectators() {
         return new HashSet<>(spectators);
+    }
+
+    /**
+     * Gets the set of former runner UUIDs (runners who died and became spectators).
+     *
+     * @return The set of former runner UUIDs
+     */
+    public Set<UUID> getFormerRunners() {
+        return new HashSet<>(formerRunners);
+    }
+    
+    /**
+     * Gets all current and former runner UUIDs.
+     *
+     * @return A set containing all current and former runner UUIDs
+     */
+    public Set<UUID> getAllRunners() {
+        Set<UUID> allRunners = new HashSet<>(runners);
+        allRunners.addAll(formerRunners);
+        return allRunners;
     }
 
     /**

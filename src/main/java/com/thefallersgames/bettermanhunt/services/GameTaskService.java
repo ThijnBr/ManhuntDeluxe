@@ -86,6 +86,86 @@ public class GameTaskService {
         startCompassTask(game);
     }
     
+    /**
+     * Sets up the boss bar for the game's starting state.
+     * 
+     * @param game The game being started
+     */
+    public void setupStartingBossBar(Game game) {
+        String gameName = game.getName();
+        
+        // Remove the lobby boss bar since the game is now starting
+        removeBossBar(gameName);
+        
+        // Create boss bar for game starting phase
+        BossBar bossBar = Bukkit.createBossBar(
+                "Game starting - Teleporting players...",
+                BarColor.BLUE,
+                BarStyle.SOLID
+        );
+        bossBar.setProgress(1.0); // Full bar
+        gameBossBars.put(gameName, bossBar);
+        
+        // Add all current players to the boss bar
+        for (UUID playerId : game.getAllPlayers()) {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player != null) {
+                bossBar.addPlayer(player);
+            }
+        }
+    }
+    
+    /**
+     * Sets up the headstart phase of the game.
+     * 
+     * @param game The game to set up
+     * @param playerSetupCallback Callback to set up each player
+     */
+    public void setupHeadstart(Game game, GameSetupManager.PlayerSetupCallback playerSetupCallback) {
+        String gameName = game.getName();
+        
+        // First make sure there's no existing boss bar
+        removeBossBar(gameName);
+        
+        // Create boss bar for headstart countdown
+        BossBar bossBar = createHeadstartBossBar(gameName);
+        
+        // Set up players
+        gameSetupManager.setupPlayersForGame(game, bossBar, playerSetupCallback);
+        
+        // Start tasks - compass task is helpful even during headstart
+        startCompassTask(game);
+        
+        // Start headstart task
+        startHeadstartTask(game, bossBar);
+    }
+    
+    /**
+     * Transitions the game from headstart to fully active state.
+     * 
+     * @param game The game to transition
+     */
+    public void transitionToActiveState(Game game) {
+        String gameName = game.getName();
+        BossBar bossBar = gameBossBars.get(gameName);
+        
+        // Update boss bar
+        if (bossBar != null) {
+            bossBar.setTitle("Manhunt Active - Hunters Released!");
+            bossBar.setColor(BarColor.RED);
+            
+            // Schedule a delayed task to transition to the runner count boss bar
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                updateActiveGameBossBar(game);
+            }, 60L); // 3 seconds
+        }
+        
+        // Make sure compass task is running
+        if (!compassTasks.containsKey(gameName)) {
+            startCompassTask(game);
+        }
+    }
+    
     // ---------------------- Boss Bar Methods ----------------------
     
     /**

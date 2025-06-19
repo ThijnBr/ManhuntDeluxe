@@ -55,10 +55,22 @@ public class GameUtils {
         switch (game.getState()) {
             case LOBBY:
                 return ChatColor.GREEN + "LOBBY";
+            case STARTING:
+                return ChatColor.YELLOW + "STARTING";
+            case TELEPORTING:
+                return ChatColor.YELLOW + "TELEPORTING";
+            case HEADSTART:
+                return ChatColor.GOLD + "HEADSTART";
             case ACTIVE:
                 return ChatColor.RED + "ACTIVE";
-            case GAME_ENDED:
-                return ChatColor.GRAY + "ENDED";
+            case RUNNERS_WON:
+                return ChatColor.BLUE + "RUNNERS WON";
+            case HUNTERS_WON:
+                return ChatColor.RED + "HUNTERS WON";
+            case ENDING:
+                return ChatColor.GRAY + "ENDING";
+            case DELETING:
+                return ChatColor.GRAY + "DELETING";
             default:
                 return ChatColor.WHITE + game.getState().toString();
         }

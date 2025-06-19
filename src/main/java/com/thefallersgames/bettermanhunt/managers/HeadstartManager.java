@@ -5,6 +5,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 
 import java.util.Map;
 import java.util.UUID;
@@ -15,13 +16,89 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class HeadstartManager {
     private final Map<UUID, Location> frozenHunterLocations = new ConcurrentHashMap<>();
+    private final Plugin plugin;
+    private final Map<String, Integer> headstartTaskIds = new ConcurrentHashMap<>();
 
     /**
      * Constructs a new HeadstartManager.
      *
      * @param plugin The plugin instance
      */
-    public HeadstartManager() {
+    public HeadstartManager(Plugin plugin) {
+        this.plugin = plugin;
+    }
+    
+    /**
+     * Starts the headstart period for a game.
+     * 
+     * @param game The game to start headstart for
+     * @param completionCallback Callback to run when headstart completes
+     */
+    public void startHeadstart(Game game, Runnable completionCallback) {
+        String gameName = game.getName();
+        
+        // Cancel any existing headstart task
+        cancelHeadstartTask(gameName);
+        
+        // Schedule a task to run every second to count down
+        int headstartDuration = game.getHeadstartDuration();
+        int taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, new Runnable() {
+            private int secondsLeft = headstartDuration;
+            
+            @Override
+            public void run() {
+                if (secondsLeft <= 0) {
+                    // Time's up - unfreeze hunters
+                    unfreezeHunters(game);
+                    
+                    // Call completion callback
+                    completionCallback.run();
+                    
+                    // Cancel this task
+                    cancelHeadstartTask(gameName);
+                } else {
+                    // Announce time remaining every 5 seconds or in the last 10 seconds
+                    if (secondsLeft <= 10 || secondsLeft % 5 == 0) {
+                        for (UUID playerId : game.getAllPlayers()) {
+                            Player player = Bukkit.getPlayer(playerId);
+                            if (player != null) {
+                                player.sendMessage("§6Headstart time remaining: §e" + secondsLeft + " seconds");
+                            }
+                        }
+                    }
+                    
+                    // Keep hunters frozen at their positions
+                    for (UUID hunterId : game.getHunters()) {
+                        Player hunter = Bukkit.getPlayer(hunterId);
+                        if (hunter != null && isPlayerFrozen(hunter.getUniqueId())) {
+                            Location frozenLoc = getFrozenLocation(hunter.getUniqueId());
+                            if (frozenLoc != null) {
+                                // Only teleport if they've moved
+                                if (hunter.getLocation().distanceSquared(frozenLoc) > 0.01) {
+                                    hunter.teleport(frozenLoc);
+                                }
+                            }
+                        }
+                    }
+                    
+                    secondsLeft--;
+                }
+            }
+        }, 0L, 20L); // Run immediately, then every second (20 ticks)
+        
+        headstartTaskIds.put(gameName, taskId);
+    }
+    
+    /**
+     * Cancels a headstart task for a game.
+     * 
+     * @param gameName The name of the game
+     */
+    public void cancelHeadstartTask(String gameName) {
+        Integer taskId = headstartTaskIds.remove(gameName);
+        if (taskId != null) {
+            Bukkit.getScheduler().cancelTask(taskId);
+        }
     }
     
     /**

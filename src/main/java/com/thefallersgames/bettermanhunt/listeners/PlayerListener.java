@@ -2,6 +2,7 @@ package com.thefallersgames.bettermanhunt.listeners;
 
 import com.thefallersgames.bettermanhunt.Plugin;
 import com.thefallersgames.bettermanhunt.managers.GameManager;
+import com.thefallersgames.bettermanhunt.managers.StatsManager;
 import com.thefallersgames.bettermanhunt.managers.TeamChatManager;
 import com.thefallersgames.bettermanhunt.models.Game;
 import com.thefallersgames.bettermanhunt.models.GameState;
@@ -37,6 +38,7 @@ public class PlayerListener implements Listener {
     private final Plugin plugin;
     private final GameManager gameManager;
     private final TeamChatManager teamChatManager;
+    private final StatsManager statsManager;
     private final Map<UUID, Long> compassCooldowns;
     
     /**
@@ -45,11 +47,13 @@ public class PlayerListener implements Listener {
      * @param plugin The plugin instance
      * @param gameManager The game manager
      * @param teamChatManager The team chat manager to use
+     * @param statsManager The stats manager to use
      */
-    public PlayerListener(Plugin plugin, GameManager gameManager, TeamChatManager teamChatManager) {
+    public PlayerListener(Plugin plugin, GameManager gameManager, TeamChatManager teamChatManager, StatsManager statsManager) {
         this.plugin = plugin;
         this.gameManager = gameManager;
         this.teamChatManager = teamChatManager;
+        this.statsManager = statsManager;
         this.compassCooldowns = new HashMap<>();
     }
     
@@ -61,7 +65,19 @@ public class PlayerListener implements Listener {
         Player player = event.getEntity();
         Game game = gameManager.getPlayerGame(player);
         
-        if (game != null && (game.getState() == GameState.ACTIVE || game.getState() == GameState.GAME_ENDED)) {
+        // Record death for statistics
+        statsManager.recordDeath(player);
+        
+        // Record kill for statistics if there's a killer
+        if (player.getKiller() != null) {
+            statsManager.recordKill(player.getKiller());
+        }
+        
+        // Handle runner deaths in active game or any game state where the game is still ongoing
+        if (game != null && (game.getState() == GameState.ACTIVE || 
+                             game.getState() == GameState.HEADSTART ||
+                             game.getState() == GameState.RUNNERS_WON || 
+                             game.getState() == GameState.HUNTERS_WON)) {
             if (game.isRunner(player)) {
                 // Handle runner death
                 gameManager.handleRunnerDeath(player);
@@ -245,20 +261,35 @@ public class PlayerListener implements Listener {
             return;
         }
         
-        // Check if the killer is a runner
-        if (event.getEntity().getKiller() instanceof Player) {
-            Player player = event.getEntity().getKiller();
-            Game game = gameManager.getPlayerGame(player);
+        // The dragon died - we need to find if any runners were in the End dimension
+        String endWorldName = event.getEntity().getWorld().getName();
+        
+        // Check all active games
+        for (Game game : gameManager.getAllGames()) {
+            if (game.getState() != GameState.ACTIVE) {
+                continue;
+            }
             
-            if (game != null && game.getState() == GameState.ACTIVE && game.isRunner(player)) {
-                // Runner won by killing the dragon!
-                gameManager.endGame(game, true);
+            // Check if any runners are in this End dimension
+            for (UUID runnerId : game.getRunners()) {
+                Player runner = plugin.getServer().getPlayer(runnerId);
                 
-                // Broadcast victory message
-                String victoryMessage = ChatColor.GREEN + "The dragon has been defeated! " + 
-                        ChatColor.GOLD + player.getName() + ChatColor.GREEN + " has won the manhunt!";
-                
-                GameUtils.broadcastMessageToGame(plugin, game, victoryMessage);
+                if (runner != null && runner.getWorld().getName().equals(endWorldName)) {
+                    // Record dragon kill stat
+                    statsManager.recordDragonKill(runner);
+                    
+                    // Runner was in the End when dragon died - victory!
+                    gameManager.endGame(game, true);
+                    
+                    // Broadcast victory message
+                    String victoryMessage = ChatColor.GREEN + "The dragon has been defeated! " + 
+                            ChatColor.BLUE + "Runners" + ChatColor.GREEN + " have won the manhunt!";
+                    
+                    GameUtils.broadcastMessageToGame(plugin, game, victoryMessage);
+                    
+                    // Break after handling this game
+                    break;
+                }
             }
         }
     }

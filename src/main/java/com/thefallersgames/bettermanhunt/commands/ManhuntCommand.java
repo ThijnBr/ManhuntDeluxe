@@ -12,7 +12,9 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Command handler for the main /manhunt command.
@@ -189,10 +191,12 @@ public class ManhuntCommand implements CommandExecutor {
             Game game = gameManager.getPlayerGame(player);
             if (game != null && game.isOwner(player)) {
                 // Start the game
-                boolean started = gameManager.startGame(game);
-                if (!started) {
-                    player.sendMessage(ChatColor.RED + "Failed to start game. Make sure there is at least one hunter and one runner.");
-                }
+                player.sendMessage(ChatColor.YELLOW + "Starting game...");
+                gameManager.startGame(game).thenAccept(started -> {
+                    if (!started) {
+                        player.sendMessage(ChatColor.RED + "Failed to start game. Make sure there is at least one hunter and one runner.");
+                    }
+                });
                 return;
             }
             
@@ -220,44 +224,76 @@ public class ManhuntCommand implements CommandExecutor {
             return;
         }
         
-        // Start the game
-        boolean started = gameManager.startGame(game);
-        if (started) {
-            // Send message to all players in the game
-            for (Player p : plugin.getServer().getOnlinePlayers()) {
-                if (game.isPlayerInGame(p)) {
-                    p.sendMessage(ChatColor.GREEN + "Game " + ChatColor.GOLD + gameName + 
-                            ChatColor.GREEN + " has started!");
-                    
-                    if (game.isRunner(p)) {
-                        p.sendMessage(ChatColor.GREEN + "You are a " + ChatColor.GOLD + "RUNNER" + 
-                                ChatColor.GREEN + ". Survive and defeat the Ender Dragon to win!");
-                    } else if (game.isHunter(p)) {
-                        p.sendMessage(ChatColor.RED + "You are a " + ChatColor.GOLD + "HUNTER" + 
-                                ChatColor.RED + ". Kill all runners before they defeat the Ender Dragon!");
-                        p.sendMessage(ChatColor.YELLOW + "You will be frozen during the headstart period.");
+        // Notify player that the game is starting
+        player.sendMessage(ChatColor.YELLOW + "Starting game " + ChatColor.GOLD + gameName + ChatColor.YELLOW + "...");
+        
+        // Broadcast to all players in the game
+        for (Player p : plugin.getServer().getOnlinePlayers()) {
+            if (game.isPlayerInGame(p) && !p.equals(player)) {
+                p.sendMessage(ChatColor.YELLOW + "Game " + ChatColor.GOLD + gameName + 
+                        ChatColor.YELLOW + " is starting...");
+            }
+        }
+        
+        // Start the game with async completion
+        gameManager.startGame(game).thenAccept(started -> {
+            if (started) {
+                // Send success message to all players in the game
+                for (Player p : plugin.getServer().getOnlinePlayers()) {
+                    if (game.isPlayerInGame(p)) {
+                        p.sendMessage(ChatColor.GREEN + "Game " + ChatColor.GOLD + gameName + 
+                                ChatColor.GREEN + " has started!");
+                        
+                        if (game.isRunner(p)) {
+                            p.sendMessage(ChatColor.GREEN + "You are a " + ChatColor.GOLD + "RUNNER" + 
+                                    ChatColor.GREEN + ". Survive and defeat the Ender Dragon to win!");
+                        } else if (game.isHunter(p)) {
+                            p.sendMessage(ChatColor.RED + "You are a " + ChatColor.GOLD + "HUNTER" + 
+                                    ChatColor.RED + ". Kill all runners before they defeat the Ender Dragon!");
+                            if (game.getState() == GameState.HEADSTART) {
+                                p.sendMessage(ChatColor.YELLOW + "You are frozen during the headstart period.");
+                            }
+                        }
                     }
                 }
+            } else {
+                player.sendMessage(ChatColor.RED + "Failed to start game. Make sure there is at least one hunter and one runner.");
             }
-        } else {
-            player.sendMessage(ChatColor.RED + "Failed to start game. Make sure there is at least one hunter and one runner.");
-        }
+        }).exceptionally(ex -> {
+            player.sendMessage(ChatColor.RED + "An error occurred while starting the game: " + ex.getMessage());
+            plugin.getLogger().severe("Error starting game: " + ex.getMessage());
+            ex.printStackTrace();
+            return null;
+        });
     }
     
     /**
      * Handles the /manhunt list command.
      */
     private void handleListCommand(Player player) {
-        List<Game> activeGames = gameManager.getActiveOrLobbyGames();
+        // Combine lobby and active games
+        List<Game> lobbyGames = gameManager.getLobbyGames();
+        List<Game> activeGames = gameManager.getActiveGames();
+        List<Game> allGames = new ArrayList<>();
+        allGames.addAll(lobbyGames);
+        allGames.addAll(activeGames);
         
-        if (activeGames.isEmpty()) {
+        if (allGames.isEmpty()) {
             player.sendMessage(ChatColor.YELLOW + "There are no active games. Create one with /manhunt create.");
             return;
         }
         
         player.sendMessage(ChatColor.GREEN + "===== Manhunt Games =====");
-        for (Game game : activeGames) {
-            String status = game.getState() == GameState.LOBBY ? ChatColor.GREEN + "LOBBY" : ChatColor.RED + "ACTIVE";
+        for (Game game : allGames) {
+            String status;
+            if (game.getState() == GameState.LOBBY) {
+                status = ChatColor.GREEN + "LOBBY";
+            } else if (game.getState() == GameState.HEADSTART) {
+                status = ChatColor.GOLD + "HEADSTART";
+            } else {
+                status = ChatColor.RED + "ACTIVE";
+            }
+            
             player.sendMessage(ChatColor.GOLD + game.getName() + ChatColor.GRAY + " - " + status + 
                     ChatColor.GRAY + " - Runners: " + ChatColor.YELLOW + game.getRunners().size() + 
                     ChatColor.GRAY + " - Hunters: " + ChatColor.YELLOW + game.getHunters().size());
